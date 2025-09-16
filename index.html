@@ -3,116 +3,646 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>بوت الفلاش لون - لوحة التحكم</title>
+    <title>بوت الفلاش لون المتطور - لوحة التحكم الكاملة</title>
     
-    <!-- تحميل Ethers.js v6 من CDN موثوق -->
+    <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.8.0/dist/ethers.umd.min.js"></script>
-    
-    <!-- تحميل Feather Icons من CDN موثوق -->
     <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.2/dist/feather.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
     
-    <!-- إضافة favicon بسيط -->
+    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e94560' stroke-width='2'><circle cx='12' cy='12' r='10'/><path d='m9 12 2 2 4-4'/></svg>">
     
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>🚀 بوت الفلاش لون - لوحة التحكم</h1>
-            <div class="network-status">
-                <span class="network-dot"></span>
-                <span id="networkName">غير متصل</span>
-            </div>
-        </div>
-
-        <!-- Status Bar -->
-        <div id="statusBar" class="status-bar info">
-            <i data-feather="info"></i>
-            <span id="statusText">⏳ جاري تحميل المكتبات...</span>
-        </div>
-
-        <!-- Wallet Connection -->
-        <div class="card wallet-section">
-            <div class="card-header">
-                <h2><i data-feather="credit-card"></i> الاتصال بالمحفظة</h2>
-            </div>
-            <div class="card-content">
-                <button id="connectWallet" class="btn btn-primary">
-                    <i data-feather="credit-card"></i>
-                    ربط محفظة MetaMask
-                </button>
-                
-                <div id="walletInfo" class="wallet-info" style="display: none;">
-                    <div class="info-row">
-                        <span>📍 العنوان:</span>
-                        <span id="walletAddress" class="address"></span>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <h1><i data-feather="zap"></i> بوت الفلاش لون المتطور</h1>
+                    <p>نظام التداول التلقائي للعملات المشفرة</p>
+                </div>
+                <div class="header-info">
+                    <div class="network-status" id="networkStatus">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="networkName">غير متصل</span>
                     </div>
-                    <div class="info-row">
-                        <span>💰 رصيد MATIC:</span>
-                        <span id="maticBalance"></span>
+                    <div class="profit-display" id="profitDisplay" style="display: none;">
+                        <span class="profit-label">إجمالي الأرباح:</span>
+                        <span class="profit-amount" id="totalProfit">$0.00</span>
                     </div>
                 </div>
             </div>
         </div>
+    </header>
 
-        <!-- Contract Connection -->
-        <div class="card contract-section" id="contractSection" style="display: none;">
-            <div class="card-header">
-                <h2><i data-feather="link"></i> ربط العقد الذكي</h2>
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+        <div class="container">
+            <ul class="tabs">
+                <li class="tab active" data-tab="connection">
+                    <i data-feather="wifi"></i> الاتصال
+                </li>
+                <li class="tab" data-tab="dashboard">
+                    <i data-feather="activity"></i> لوحة التحكم
+                </li>
+                <li class="tab" data-tab="settings">
+                    <i data-feather="settings"></i> الإعدادات
+                </li>
+                <li class="tab" data-tab="portfolio">
+                    <i data-feather="briefcase"></i> المحفظة
+                </li>
+                <li class="tab" data-tab="history">
+                    <i data-feather="clock"></i> السجل
+                </li>
+                <li class="tab" data-tab="analytics">
+                    <i data-feather="trending-up"></i> التحليلات
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            <!-- Status Bar -->
+            <div class="status-bar" id="statusBar">
+                <i data-feather="info"></i>
+                <span id="statusText">جاري تحميل النظام...</span>
             </div>
-            <div class="card-content">
-                <div class="input-group">
-                    <input type="text" 
-                           id="contractAddress" 
-                           placeholder="أدخل عنوان العقد"
-                           value="0xf5AC42405199De0a3815Be97017619d331594667">
-                    <button id="connectContract" class="btn btn-secondary">
-                        <i data-feather="link"></i>
-                        ربط العقد
-                    </button>
+
+            <!-- Connection Tab -->
+            <div class="tab-content active" id="connection">
+                <div class="row">
+                    <div class="col-12 col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i data-feather="credit-card"></i> ربط المحفظة</h3>
+                            </div>
+                            <div class="card-body">
+                                <button id="connectWallet" class="btn btn-primary btn-lg">
+                                    <i data-feather="credit-card"></i>
+                                    ربط محفظة MetaMask
+                                </button>
+                                
+                                <div id="walletInfo" class="wallet-info" style="display: none;">
+                                    <div class="info-grid">
+                                        <div class="info-item">
+                                            <span class="label">العنوان:</span>
+                                            <span id="walletAddress" class="value address"></span>
+                                        </div>
+                                        <div class="info-item">
+                                            <span class="label">رصيد MATIC:</span>
+                                            <span id="maticBalance" class="value"></span>
+                                        </div>
+                                        <div class="info-item">
+                                            <span class="label">الشبكة:</span>
+                                            <span id="networkInfo" class="value"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12 col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i data-feather="link"></i> ربط العقد الذكي</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="contractAddress">عنوان العقد:</label>
+                                    <input type="text" 
+                                           id="contractAddress" 
+                                           class="form-input"
+                                           placeholder="0x..."
+                                           value="0xf5AC42405199De0a3815Be97017619d331594667">
+                                </div>
+                                <button id="connectContract" class="btn btn-secondary">
+                                    <i data-feather="link"></i>
+                                    ربط العقد
+                                </button>
+                                
+                                <div id="contractInfo" class="contract-info" style="display: none;">
+                                    <div class="info-grid">
+                                        <div class="info-item">
+                                            <span class="label">مالك العقد:</span>
+                                            <span id="contractOwner" class="value address"></span>
+                                        </div>
+                                        <div class="info-item">
+                                            <span class="label">حالة البوت:</span>
+                                            <span id="botStatus" class="value"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div class="tab-content" id="dashboard">
+                <div class="row">
+                    <!-- Trading Controls -->
+                    <div class="col-12 col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i data-feather="play-circle"></i> التحكم في التداول</h3>
+                                <div class="auto-trading-status">
+                                    <label class="switch">
+                                        <input type="checkbox" id="autoTradingToggle">
+                                        <span class="slider"></span>
+                                    </label>
+                                    <span>التداول التلقائي</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="trading-buttons">
+                                    <button id="startTrading" class="btn btn-success">
+                                        <i data-feather="play"></i>
+                                        بدء التداول
+                                    </button>
+                                    <button id="stopTrading" class="btn btn-warning">
+                                        <i data-feather="pause"></i>
+                                        إيقاف مؤقت
+                                    </button>
+                                    <button id="emergencyStop" class="btn btn-danger">
+                                        <i data-feather="alert-triangle"></i>
+                                        إيقاف طوارئ
+                                    </button>
+                                </div>
+                                
+                                <div class="opportunities-section">
+                                    <h4><i data-feather="target"></i> الفرص المتاحة</h4>
+                                    <button id="scanOpportunities" class="btn btn-info">
+                                        <i data-feather="search"></i>
+                                        فحص الفرص
+                                    </button>
+                                    <div id="opportunitiesList" class="opportunities-list"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="col-12 col-lg-4">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-icon success">
+                                    <i data-feather="trending-up"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h4 id="totalTrades">0</h4>
+                                    <p>إجمالي الصفقات</p>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon info">
+                                    <i data-feather="check-circle"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h4 id="successfulTrades">0</h4>
+                                    <p>الصفقات الناجحة</p>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon warning">
+                                    <i data-feather="percent"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h4 id="successRate">0%</h4>
+                                    <p>معدل النجاح</p>
+                                </div>
+                            </div>
+                            
+                            <div class="stat-card">
+                                <div class="stat-icon success">
+                                    <i data-feather="dollar-sign"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h4 id="dailyProfit">$0.00</h4>
+                                    <p>ربح اليوم</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Trades -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i data-feather="activity"></i> الصفقات الأخيرة</h3>
+                                <button id="refreshTrades" class="btn btn-sm btn-secondary">
+                                    <i data-feather="refresh-cw"></i>
+                                    تحديث
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="trades-table" id="recentTrades">
+                                        <thead>
+                                            <tr>
+                                                <th>الوقت</th>
+                                                <th>العملة</th>
+                                                <th>النوع</th>
+                                                <th>المبلغ</th>
+                                                <th>الربح/الخسارة</th>
+                                                <th>الحالة</th>
+                                                <th>الإجراءات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="tab-content" id="settings">
+                <div class="row">
+                    <div class="col-12 col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i data-feather="sliders"></i> إعدادات التداول</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label for="minProfitThreshold">أقل ربح مقبول (USDC):</label>
+                                    <input type="number" id="minProfitThreshold" class="form-input" 
+                                           value="1" min="0.1" step="0.1">
+                                    <small class="help-text">أقل مبلغ ربح لتنفيذ الصفقة</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="maxSlippage">أقصى انزلاق مسموح (%):</label>
+                                    <input type="number" id="maxSlippage" class="form-input" 
+                                           value="2" min="0.1" max="10" step="0.1">
+                                    <small class="help-text">نسبة الانزلاق المقبولة في السعر</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="maxTradeAmount">أقصى مبلغ للصفقة (USDC):</label>
+                                    <input type="number" id="maxTradeAmount" class="form-input" 
+                                           value="1000" min="10" step="10">
+                                    <small class="help-text">أقصى مبلغ لكل صفقة واحدة</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="maxDailyLoss">أقصى خسارة يومية (USDC):</label>
+                                    <input type="number" id="maxDailyLoss" class="form-input" 
+                                           value="100" min="10" step="10">
+                                    <small class="help-text">حد الخسارة اليومية لإيقاف التداول</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="tradingInterval">فاصل زمني بين الصفقات (ثانية):</label>
+                                    <input type="number" id="tradingInterval" class="form-input" 
+                                           value="300" min="60" step="30">
+                                    <small class="help-text">الوقت بين فحص الفرص والتنفيذ</small>
+                                </div>
+
+                                <button id="saveSettings" class="btn btn-primary">
+                                    <i data-feather="save"></i>
+                                    حفظ الإعدادات
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i data-feather="shield"></i> إعدادات الأمان</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="enableStopLoss">
+                                        <span class="checkmark"></span>
+                                        تفعيل إيقاف الخسائر
+                                    </label>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="enableNotifications">
+                                        <span class="checkmark"></span>
+                                        تفعيل التنبيهات
+                                    </label>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="enableEmergencyMode">
+                                        <span class="checkmark"></span>
+                                        وضع الطوارئ التلقائي
+                                    </label>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="gasLimit">حد الغاز:</label>
+                                    <input type="number" id="gasLimit" class="form-input" 
+                                           value="300000" min="21000" step="1000">
+                                    <small class="help-text">حد الغاز للمعاملات</small>
+                                </div>
+                                
+                                <div class="security-status">
+                                    <h4><i data-feather="info"></i> حالة الأمان</h4>
+                                    <div class="security-item">
+                                        <span>اتصال المحفظة:</span>
+                                        <span id="walletSecurityStatus" class="status-badge">غير متصل</span>
+                                    </div>
+                                    <div class="security-item">
+                                        <span>حالة العقد:</span>
+                                        <span id="contractSecurityStatus" class="status-badge">غير متصل</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Portfolio Tab -->
+            <div class="tab-content" id="portfolio">
+                <div class="row">
+                    <div class="col-12 col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i data-feather="pie-chart"></i> أرصدة العقد</h3>
+                                <button id="refreshBalances" class="btn btn-sm btn-secondary">
+                                    <i data-feather="refresh-cw"></i>
+                                    تحديث
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div class="balances-grid" id="balancesGrid">
+                                    <!-- سيتم تعبئة هذا القسم ديناميكياً -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card mt-4">
+                            <div class="card-header">
+                                <h3><i data-feather="arrow-down-circle"></i> إدارة الأموال</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="fund-management">
+                                    <div class="row">
+                                        <div class="col-12 col-md-6">
+                                            <h4>إيداع أموال</h4>
+                                            <div class="form-group">
+                                                <label for="depositToken">العملة:</label>
+                                                <select id="depositToken" class="form-input">
+                                                    <option value="USDC">USDC</option>
+                                                    <option value="USDT">USDT</option>
+                                                    <option value="DAI">DAI</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="depositAmount">المبلغ:</label>
+                                                <input type="number" id="depositAmount" class="form-input" 
+                                                       placeholder="0.00" min="0" step="0.01">
+                                            </div>
+                                            <button id="depositFunds" class="btn btn-success">
+                                                <i data-feather="arrow-down"></i>
+                                                إيداع
+                                            </button>
+                                        </div>
+                                        
+                                        <div class="col-12 col-md-6">
+                                            <h4>سحب أموال</h4>
+                                            <div class="form-group">
+                                                <label for="withdrawToken">العملة:</label>
+                                                <select id="withdrawToken" class="form-input">
+                                                    <option value="USDC">USDC</option>
+                                                    <option value="USDT">USDT</option>
+                                                    <option value="DAI">DAI</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="withdrawAmount">المبلغ:</label>
+                                                <input type="number" id="withdrawAmount" class="form-input" 
+                                                       placeholder="0.00" min="0" step="0.01">
+                                            </div>
+                                            <button id="withdrawFunds" class="btn btn-warning">
+                                                <i data-feather="arrow-up"></i>
+                                                سحب
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12 col-lg-4">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i data-feather="bar-chart-2"></i> توزيع المحفظة</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="portfolioChart" width="300" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div class="tab-content" id="history">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i data-feather="clock"></i> سجل المعاملات</h3>
+                        <div class="history-filters">
+                            <select id="filterPeriod" class="form-input">
+                                <option value="today">اليوم</option>
+                                <option value="week">هذا الأسبوع</option>
+                                <option value="month">هذا الشهر</option>
+                                <option value="all">جميع المعاملات</option>
+                            </select>
+                            <select id="filterType" class="form-input">
+                                <option value="all">جميع الأنواع</option>
+                                <option value="arbitrage">تحكيم</option>
+                                <option value="deposit">إيداع</option>
+                                <option value="withdrawal">سحب</option>
+                            </select>
+                            <button id="exportHistory" class="btn btn-sm btn-secondary">
+                                <i data-feather="download"></i>
+                                تصدير
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="history-table" id="historyTable">
+                                <thead>
+                                    <tr>
+                                        <th>التاريخ والوقت</th>
+                                        <th>النوع</th>
+                                        <th>العملة</th>
+                                        <th>المبلغ</th>
+                                        <th>رسوم الغاز</th>
+                                        <th>الربح/الخسارة</th>
+                                        <th>معرف المعاملة</th>
+                                        <th>الحالة</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- سيتم تعبئة هذا القسم ديناميكياً -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="pagination" id="historyPagination"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div class="tab-content" id="analytics">
+                <div class="row">
+                    <div class="col-12 col-lg-8">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i data-feather="trending-up"></i> تحليل الأداء</h3>
+                                <div class="chart-controls">
+                                    <select id="chartPeriod" class="form-input">
+                                        <option value="1d">24 ساعة</option>
+                                        <option value="7d">7 أيام</option>
+                                        <option value="30d">30 يوم</option>
+                                        <option value="90d">90 يوم</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="performanceChart" height="400"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12 col-lg-4">
+                        <div class="analytics-sidebar">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4><i data-feather="target"></i> مؤشرات الأداء</h4>
+                                </div>
+                                <div class="card-body">
+                                    <div class="kpi-grid">
+                                        <div class="kpi-item">
+                                            <span class="kpi-label">العائد الإجمالي:</span>
+                                            <span class="kpi-value" id="totalReturn">+0.00%</span>
+                                        </div>
+                                        <div class="kpi-item">
+                                            <span class="kpi-label">العائد الشهري:</span>
+                                            <span class="kpi-value" id="monthlyReturn">+0.00%</span>
+                                        </div>
+                                        <div class="kpi-item">
+                                            <span class="kpi-label">متوسط الربح:</span>
+                                            <span class="kpi-value" id="avgProfit">$0.00</span>
+                                        </div>
+                                        <div class="kpi-item">
+                                            <span class="kpi-label">أكبر ربح:</span>
+                                            <span class="kpi-value" id="maxProfit">$0.00</span>
+                                        </div>
+                                        <div class="kpi-item">
+                                            <span class="kpi-label">أكبر خسارة:</span>
+                                            <span class="kpi-value negative" id="maxLoss">$0.00</span>
+                                        </div>
+                                        <div class="kpi-item">
+                                            <span class="kpi-label">معدل شارب:</span>
+                                            <span class="kpi-value" id="sharpeRatio">0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4><i data-feather="activity"></i> إحصائيات التداول</h4>
+                                </div>
+                                <div class="card-body">
+                                    <div class="trading-stats">
+                                        <div class="stat-item">
+                                            <span>إجمالي الصفقات:</span>
+                                            <span id="totalTradesAnalytics">0</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span>الصفقات الناجحة:</span>
+                                            <span id="winningTrades">0</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span>الصفقات الخاسرة:</span>
+                                            <span id="losingTrades">0</span>
+                                        </div>
+                                        <div class="stat-item">
+                                            <span>متوسط وقت الصفقة:</span>
+                                            <span id="avgTradeTime">0s</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+    </main>
 
-        <!-- Bot Controls -->
-        <div class="card controls-section" id="controlsSection" style="display: none;">
-            <div class="card-header">
-                <h2><i data-feather="settings"></i> التحكم في البوت</h2>
-            </div>
-            <div class="card-content">
-                <div class="button-grid">
-                    <button id="getStats" class="btn btn-info">
-                        <i data-feather="bar-chart-2"></i>
-                        عرض الإحصائيات
-                    </button>
-                    <button id="getBalances" class="btn btn-info">
-                        <i data-feather="dollar-sign"></i>
-                        عرض الأرصدة
-                    </button>
-                    <button id="checkOpportunities" class="btn btn-success">
-                        <i data-feather="trending-up"></i>
-                        فحص الفرص
-                    </button>
-                    <button id="emergencyStop" class="btn btn-danger">
-                        <i data-feather="alert-triangle"></i>
-                        إيقاف طوارئ
-                    </button>
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2025 بوت الفلاش لون المتطور - جميع الحقوق محفوظة</p>
+                <div class="footer-links">
+                    <a href="#" onclick="showModal('aboutModal')">حول النظام</a>
+                    <a href="#" onclick="showModal('helpModal')">المساعدة</a>
+                    <a href="#" onclick="showModal('contactModal')">الاتصال</a>
                 </div>
             </div>
         </div>
+    </footer>
 
-        <!-- Results Display -->
-        <div class="card results-section" id="resultsSection" style="display: none;">
-            <div class="card-header">
-                <h2><i data-feather="monitor"></i> النتائج</h2>
+    <!-- Modals -->
+    <div id="aboutModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>حول النظام</h3>
+                <button class="modal-close" onclick="hideModal('aboutModal')">&times;</button>
             </div>
-            <div class="card-content">
-                <div id="resultsContent"></div>
+            <div class="modal-body">
+                <p>بوت الفلاش لون المتطور هو نظام تداول تلقائي متقدم يستخدم تقنية الفلاش لون للربح من فروقات الأسعار بين المنصات المختلفة.</p>
+                <p><strong>الميزات الرئيسية:</strong></p>
+                <ul>
+                    <li>تداول تلقائي بدون رأس مال مسبق</li>
+                    <li>مراقبة مستمرة للفرص</li>
+                    <li>إدارة متقدمة للمخاطر</li>
+                    <li>تحليلات شاملة للأداء</li>
+                </ul>
             </div>
         </div>
     </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>جاري المعالجة...</p>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="notification-container"></div>
 
     <script src="app.js"></script>
 </body>
