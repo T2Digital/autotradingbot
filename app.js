@@ -343,112 +343,50 @@ function initializeEventListeners() {
         window.ethereum.on('disconnect', handleDisconnect);
     }
 }
-// استبدل دالة connectWallet الحالية بهذه النسخة المُصححة
 async function connectWallet() {
     try {
         showLoading('جاري الاتصال بالمحفظة...');
         updateStatus('⏳ جاري الاتصال بالمحفظة...', 'info');
-        
-        // تحقق من وجود MetaMask
+
         if (!window.ethereum) {
             throw new Error('MetaMask غير مثبت. يرجى تثبيت MetaMask أولاً من https://metamask.io');
         }
-        
-        // تحقق من تحميل Ethers.js
-        if (typeof ethers === 'undefined') {
-            throw new Error('مكتبة Ethers.js غير محملة. يرجى إعادة تحميل الصفحة.');
-        }
-        
-        console.log('✅ MetaMask detected, attempting connection...');
-        
-        // طلب الاتصال بـ MetaMask بطريقة متوافقة مع جميع الإصدارات
-        let accounts;
-        try {
-            // الطريقة الحديثة
-            accounts = await window.ethereum.request({ 
-                method: 'eth_requestAccounts' 
-            });
-        } catch (requestError) {
-            console.log('Modern request failed, trying legacy method...');
-            // الطريقة القديمة كخيار احتياطي
-            if (window.ethereum.enable) {
-                accounts = await window.ethereum.enable();
-            } else if (window.ethereum.selectedAddress) {
-                accounts = [window.ethereum.selectedAddress];
-            } else {
-                throw new Error('لا يمكن الوصول إلى حسابات MetaMask');
-            }
-        }
-        
-        // تحقق من وجود حسابات
-        if (!accounts || accounts.length === 0) {
-            throw new Error('لم يتم العثور على حسابات. يرجى فتح MetaMask والتأكد من تسجيل الدخول.');
-        }
-        
-        console.log('✅ Accounts found:', accounts);
-        
-        // إنشاء Provider و Signer مع معالجة الأخطاء
-        try {
-            provider = new ethers.BrowserProvider(window.ethereum);
-        } catch (providerError) {
-            console.error('Provider creation failed:', providerError);
-            // جرب الطريقة البديلة
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-        }
-        
-        signer = await provider.getSigner();
-        
-        // الحصول على معلومات المحفظة
+
+        // إنشاء Web3Provider
+        provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+
+        // طلب حسابات
+        await provider.send('eth_requestAccounts', []);
+
+        // الحصول على Signer
+        signer = provider.getSigner();
+
+        // جلب بيانات المحفظة
         const address = await signer.getAddress();
-        const balanceBigInt = await provider.getBalance(address);
-        const balance = ethers.formatEther(balanceBigInt);
-        let network;
-        
-        try {
-            network = await provider.getNetwork();
-        } catch (networkError) {
-            console.warn('Could not get network info:', networkError);
-            network = { name: 'Unknown', chainId: 0 };
-        }
-        
-        // تحديث حالة التطبيق
+        const balance = await provider.getBalance(address).then(b => ethers.formatEther(b));
+        const network = await provider.getNetwork();
+
         AppState.wallet = {
             connected: true,
-            address: address,
-            balance: balance,
-            network: network.name || 'Unknown'
+            address,
+            balance,
+            network: network.name
         };
-        
-        // تحديث واجهة المستخدم
+
         updateWalletUI();
-        updateNetworkStatus(network.name || 'Unknown', true);
-        
+        updateNetworkStatus(network.name, true);
+
         isConnected = true;
         updateStatus('✅ تم ربط المحفظة بنجاح', 'success');
         showNotification('تم ربط المحفظة بنجاح', 'success');
-        
-        console.log('✅ Wallet connected successfully:', {
-            address: address,
-            balance: balance,
-            network: network.name
-        });
-        
+
     } catch (error) {
-        console.error('❌ Wallet connection error:', error);
-        
-        // رسائل خطأ مخصصة
-        let errorMessage = error.message;
-        
-        if (error.message.includes('User rejected')) {
-            errorMessage = 'تم رفض طلب الاتصال من المستخدم';
-        } else if (error.message.includes('No active wallet')) {
-            errorMessage = 'لا توجد محفظة نشطة. تأكد من فتح MetaMask وتسجيل الدخول';
-        } else if (error.message.includes('eth_requestAccounts')) {
-            errorMessage = 'خطأ في طلب حسابات MetaMask. جرب إعادة تحميل الصفحة';
-        }
-        
-        updateStatus('❌ خطأ في ربط المحفظة: ' + errorMessage, 'error');
-        showNotification('فشل في ربط المحفظة: ' + errorMessage, 'error');
+        console.error('Wallet connection error:', error);
+        const msg = error.message.includes('User rejected') ?
+            'تم رفض طلب الاتصال من المستخدم' :
+            'فشل في الاتصال بالمحفظة: ' + error.message;
+        updateStatus('❌ ' + msg, 'error');
+        showNotification(msg, 'error');
     } finally {
         hideLoading();
     }
