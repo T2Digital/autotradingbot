@@ -153,6 +153,32 @@ const Elements = {
     }
 };
 
+// حاول إعادة الاتصال تلقائياً إذا كانت المحفظة مفتوحة
+document.addEventListener('DOMContentLoaded', async () => {
+  if (window.ethereum) {
+    try {
+      const tempProvider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+      const accounts = await tempProvider.send('eth_accounts', []);
+      if (accounts.length > 0) {
+        // إذا وجدت حسابات، نفّذ connectWallet مباشرة
+        await connectWallet();
+        return; // امنع استمرار التحميل في حالة إعادة الاتصال
+      }
+    } catch (e) {
+      console.warn('Auto-connect failed:', e);
+    }
+  }
+  console.log('No active session, waiting user to click Connect');
+  
+  // باقي تهيئة الواجهة
+  checkLibraries();
+  initializeIcons();
+  initializeTabs();
+  initializeEventListeners();
+  initializeCharts();
+  loadSettings();
+});
+
 // Initialize Application
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Flash Loan Bot Advanced Interface Starting...');
