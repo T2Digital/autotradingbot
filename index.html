@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بوت الفلاش لون الحقيقي - Polygon Flash Loan Bot</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body>
+    <!-- Wallet Connection Modal -->
+    <div id="walletModal" class="modal">
+        <div class="modal-content">
+            <div class="wallet-connect-header">
+                <h2>الاتصال بالمحفظة</h2>
+                <p>اربط محفظة MetaMask للوصول إلى بوت التداول الحقيقي</p>
+            </div>
+            
+            <div class="wallet-requirements">
+                <div class="requirement-item">
+                    <i data-feather="check-circle"></i>
+                    <span>MetaMask مثبت في المتصفح</span>
+                </div>
+                <div class="requirement-item">
+                    <i data-feather="check-circle"></i>
+                    <span>شبكة Polygon Mainnet</span>
+                </div>
+                <div class="requirement-item">
+                    <i data-feather="alert-triangle"></i>
+                    <span>رصيد MATIC للغاز</span>
+                </div>
+            </div>
+            
+            <div class="real-warning">
+                <i data-feather="alert-circle"></i>
+                <div>
+                    <strong>تحذير مهم:</strong>
+                    <p>هذا نظام تداول حقيقي باستخدام أموال حقيقية على شبكة Polygon. تأكد من فهم المخاطر قبل المتابعة.</p>
+                </div>
+            </div>
+            
+            <button class="btn btn--primary btn--full-width" id="connectWalletBtn">
+                <i data-feather="wallet"></i>
+                اتصال بـ MetaMask
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>Flash Loan Bot</h1>
+                    <div class="network-indicator" id="networkIndicator">
+                        <span class="network-dot"></span>
+                        <span id="networkName">Polygon</span>
+                    </div>
+                </div>
+                
+                <div class="wallet-info" id="walletInfo">
+                    <div class="wallet-balance">
+                        <span class="label">الرصيد:</span>
+                        <span id="walletBalance">-- MATIC</span>
+                    </div>
+                    <div class="wallet-address">
+                        <span class="label">العنوان:</span>
+                        <span id="walletAddress">غير متصل</span>
+                    </div>
+                    <button class="btn btn--outline btn--sm" id="disconnectBtn">
+                        قطع الاتصال
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-tab="setup">
+                <i data-feather="settings"></i>
+                الإعداد
+            </button>
+            <button class="nav-tab" data-tab="control">
+                <i data-feather="play-circle"></i>
+                التحكم
+            </button>
+            <button class="nav-tab" data-tab="monitoring">
+                <i data-feather="activity"></i>
+                المراقبة
+            </button>
+            <button class="nav-tab" data-tab="wallet">
+                <i data-feather="credit-card"></i>
+                المحفظة
+            </button>
+        </nav>
+
+        <!-- Setup Section -->
+        <section id="setup" class="section active">
+            <div class="section-header">
+                <h2>إعداد العقد الذكي</h2>
+                <p>أدخل عنوان عقد الفلاش لون المنشور على Polygon</p>
+            </div>
+            
+            <div class="setup-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>عنوان العقد</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label class="form-label">عنوان العقد الذكي</label>
+                            <input type="text" class="form-control" id="contractAddress" 
+                                   placeholder="0x..." 
+                                   value="">
+                        </div>
+                        <button class="btn btn--primary" id="verifyContractBtn">
+                            <i data-feather="search"></i>
+                            التحقق من العقد
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>معلومات العقد</h3>
+                    </div>
+                    <div class="card-body" id="contractInfo">
+                        <div class="info-placeholder">
+                            <i data-feather="info"></i>
+                            <p>أدخل عنوان العقد للحصول على المعلومات</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>العملات المدعومة</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="tokens-grid" id="tokensGrid">
+                            <!-- Will be populated by JS -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>إعدادات التداول</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label class="form-label">الحد الأدنى للربح (USD)</label>
+                            <input type="number" class="form-control" id="minProfitUSD" value="5" min="1" step="0.1">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">الانزلاق الأقصى (%)</label>
+                            <input type="number" class="form-control" id="maxSlippage" value="3" min="0.1" max="10" step="0.1">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">حد الغاز الأقصى</label>
+                            <input type="number" class="form-control" id="maxGasLimit" value="500000" min="100000" step="10000">
+                        </div>
+                        
+                        <button class="btn btn--primary" id="saveSettingsBtn">
+                            <i data-feather="save"></i>
+                            حفظ الإعدادات
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Control Section -->
+        <section id="control" class="section">
+            <div class="section-header">
+                <h2>التحكم في البوت</h2>
+                <p>تشغيل وإيقاف البوت ومراقبة العمليات</p>
+            </div>
+            
+            <div class="control-grid">
+                <div class="card bot-status-card">
+                    <div class="card-header">
+                        <h3>حالة البوت</h3>
+                        <div class="bot-status" id="botStatusDisplay">
+                            <span class="status-dot stopped"></span>
+                            <span>متوقف</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="bot-controls">
+                            <button class="btn btn--primary btn--full-width" id="startBotBtn" disabled>
+                                <i data-feather="play"></i>
+                                تشغيل البوت
+                            </button>
+                            
+                            <button class="btn btn--outline btn--full-width" id="pauseBotBtn" disabled>
+                                <i data-feather="pause"></i>
+                                إيقاف مؤقت
+                            </button>
+                            
+                            <button class="btn emergency btn--full-width" id="emergencyStopBtn">
+                                <i data-feather="alert-octagon"></i>
+                                إيقاف طوارئ
+                            </button>
+                        </div>
+                        
+                        <div class="bot-info" id="botInfo">
+                            <div class="info-item">
+                                <span>وقت التشغيل:</span>
+                                <span id="uptime">--</span>
+                            </div>
+                            <div class="info-item">
+                                <span>آخر فحص:</span>
+                                <span id="lastCheck">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>الفرص الحالية</h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="currentOpportunities" class="opportunities-list">
+                            <div class="no-data">
+                                <i data-feather="search"></i>
+                                <p>يتم البحث عن الفرص...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>معلومات الشبكة</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="network-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">سعر الغاز:</span>
+                                <span class="stat-value" id="gasPrice">-- Gwei</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">رقم البلوك:</span>
+                                <span class="stat-value" id="blockNumber">--</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">MATIC/USD:</span>
+                                <span class="stat-value" id="maticPrice">$--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Monitoring Section -->
+        <section id="monitoring" class="section">
+            <div class="section-header">
+                <h2>مراقبة الصفقات</h2>
+                <p>متابعة جميع المعاملات والصفقات المنفذة</p>
+            </div>
+            
+            <div class="monitoring-grid">
+                <div class="card stats-card">
+                    <div class="card-header">
+                        <h3>إحصائيات اليوم</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="stat-number" id="todayTrades">0</div>
+                                <div class="stat-label">الصفقات</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-number" id="todayProfit">$0.00</div>
+                                <div class="stat-label">الأرباح</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-number" id="todayGasFees">$0.00</div>
+                                <div class="stat-label">رسوم الغاز</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-number" id="successRate">0%</div>
+                                <div class="stat-label">معدل النجاح</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h3>الأرباح خلال 24 ساعة</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="position: relative; height: 300px;">
+                            <canvas id="profitChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card trades-table-card">
+                <div class="card-header">
+                    <h3>سجل المعاملات</h3>
+                    <div class="table-controls">
+                        <select class="form-control" id="filterStatus">
+                            <option value="all">جميع الحالات</option>
+                            <option value="success">نجح</option>
+                            <option value="failed">فشل</option>
+                            <option value="pending">معلق</option>
+                        </select>
+                        <button class="btn btn--outline btn--sm" id="refreshTransactions">
+                            <i data-feather="refresh-cw"></i>
+                            تحديث
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="transactions-table" id="transactionsTable">
+                        <div class="no-data">
+                            <i data-feather="database"></i>
+                            <p>لا توجد معاملات بعد</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Wallet Section -->
+        <section id="wallet" class="section">
+            <div class="section-header">
+                <h2>إدارة المحفظة</h2>
+                <p>عرض الأرصدة وإجراء السحوبات</p>
+            </div>
+            
+            <div class="wallet-grid">
+                <div class="card balances-card">
+                    <div class="card-header">
+                        <h3>أرصدة العقد</h3>
+                        <button class="btn btn--outline btn--sm" id="refreshBalances">
+                            <i data-feather="refresh-cw"></i>
+                            تحديث
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="contractBalances" class="balances-list">
+                            <!-- Will be populated by JS -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card withdraw-card">
+                    <div class="card-header">
+                        <h3>سحب الأرباح</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="withdrawForm" class="withdraw-form">
+                            <div class="form-group">
+                                <label class="form-label">العملة</label>
+                                <select class="form-control" id="withdrawToken" required>
+                                    <option value="">اختر العملة</option>
+                                    <option value="0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174">USDC</option>
+                                    <option value="0xc2132D05D31c914a87C6611C10748AEb04B58e8F">USDT</option>
+                                    <option value="0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063">DAI</option>
+                                    <option value="0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619">WETH</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">المبلغ</label>
+                                <input type="number" class="form-control" id="withdrawAmount" 
+                                       placeholder="0.00" min="0" step="0.000001" required>
+                                <div class="input-help">
+                                    الرصيد المتاح: <span id="availableBalance">--</span>
+                                </div>
+                            </div>
+                            
+                            <div class="gas-estimate" id="gasEstimate" style="display: none;">
+                                <div class="estimate-item">
+                                    <span>تقدير الغاز:</span>
+                                    <span id="estimatedGas">--</span>
+                                </div>
+                                <div class="estimate-item">
+                                    <span>التكلفة التقديرية:</span>
+                                    <span id="estimatedCost">--</span>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn--primary btn--full-width" id="withdrawBtn" disabled>
+                                <i data-feather="send"></i>
+                                سحب الأرباح
+                            </button>
+                        </form>
+                        
+                        <div class="emergency-section">
+                            <hr>
+                            <button class="btn emergency btn--full-width" id="emergencyWithdrawBtn">
+                                <i data-feather="alert-triangle"></i>
+                                سحب طوارئ (جميع الأرصدة)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card transaction-history-card">
+                <div class="card-header">
+                    <h3>تاريخ المعاملات</h3>
+                </div>
+                <div class="card-body">
+                    <div id="transactionHistory" class="history-list">
+                        <!-- Will be populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p id="loadingText">جاري التحميل...</p>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification hidden">
+        <div class="notification-content">
+            <i data-feather="check-circle" id="notificationIcon"></i>
+            <span id="notificationText">تم تنفيذ العملية بنجاح</span>
+        </div>
+        <button class="notification-close" id="notificationClose">
+            <i data-feather="x"></i>
+        </button>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="confirmTitle">تأكيد العملية</h3>
+            <div id="confirmMessage">هل أنت متأكد من تنفيذ هذه العملية؟</div>
+            <div class="confirm-details" id="confirmDetails" style="display: none;"></div>
+            <div class="modal-actions">
+                <button class="btn btn--outline" id="cancelBtn">إلغاء</button>
+                <button class="btn btn--primary" id="confirmActionBtn">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
