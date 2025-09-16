@@ -11,6 +11,31 @@ let tradingInterval;
 let portfolioChart;
 let performanceChart;
 
+// دالة للتحقق من حالة MetaMask
+function checkMetaMaskStatus() {
+    console.log('🔍 Checking MetaMask status...');
+    
+    // تحقق من وجود window.ethereum
+    if (typeof window.ethereum !== 'undefined') {
+        console.log('✅ window.ethereum found');
+        console.log('MetaMask detected:', window.ethereum.isMetaMask);
+        console.log('Selected address:', window.ethereum.selectedAddress);
+        console.log('Network version:', window.ethereum.networkVersion);
+        
+        // تحقق من حالة الاتصال
+        if (window.ethereum.selectedAddress) {
+            console.log('✅ User already connected to:', window.ethereum.selectedAddress);
+        } else {
+            console.log('⚠️ User not connected');
+        }
+        
+        return true;
+    } else {
+        console.log('❌ window.ethereum not found');
+        return false;
+    }
+}
+
 // Contract Configuration
 const CONTRACT_ABI = [
     // Owner and Admin Functions
@@ -135,38 +160,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize DOM elements cache
     Elements.init();
     
-    // Check libraries
-    checkLibraries();
-    
-    // Initialize components
-    initializeIcons();
-    initializeTabs();
-    initializeEventListeners();
-    initializeCharts();
-    
-    // Load saved settings
-    loadSettings();
-    
-    console.log('✅ Flash Loan Bot Advanced Interface Loaded Successfully!');
-});
-
-// Library Check
 function checkLibraries() {
     try {
         const errors = [];
         
+        // تحقق من Ethers.js
         if (typeof ethers === 'undefined') {
             errors.push('Ethers.js library not loaded');
         } else {
             console.log('✅ Ethers.js loaded successfully');
+            console.log('Ethers version:', ethers.version || 'Unknown');
         }
         
+        // تحقق من MetaMask
+        const metamaskStatus = checkMetaMaskStatus();
+        if (!metamaskStatus) {
+            console.warn('⚠️ MetaMask not detected');
+        }
+        
+        // تحقق من Feather Icons
         if (typeof feather === 'undefined') {
             console.warn('⚠️ Feather Icons not loaded, using fallback');
         } else {
             console.log('✅ Feather Icons loaded successfully');
         }
         
+        // تحقق من Chart.js
         if (typeof Chart === 'undefined') {
             console.warn('⚠️ Chart.js not loaded, charts will be disabled');
         } else {
@@ -184,6 +203,7 @@ function checkLibraries() {
         console.error('Library loading error:', error);
     }
 }
+
 
 // Icons Initialization
 function initializeIcons() {
@@ -323,59 +343,117 @@ function initializeEventListeners() {
         window.ethereum.on('disconnect', handleDisconnect);
     }
 }
-
-// Wallet Connection
+// استبدل دالة connectWallet الحالية بهذه النسخة المُصححة
 async function connectWallet() {
     try {
         showLoading('جاري الاتصال بالمحفظة...');
         updateStatus('⏳ جاري الاتصال بالمحفظة...', 'info');
         
-        // Check MetaMask
+        // تحقق من وجود MetaMask
         if (!window.ethereum) {
-            throw new Error('MetaMask غير مثبت. يرجى تثبيت MetaMask أولاً.');
+            throw new Error('MetaMask غير مثبت. يرجى تثبيت MetaMask أولاً من https://metamask.io');
         }
         
-        // Check Ethers.js
+        // تحقق من تحميل Ethers.js
         if (typeof ethers === 'undefined') {
             throw new Error('مكتبة Ethers.js غير محملة. يرجى إعادة تحميل الصفحة.');
         }
         
-        // Request account access
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        console.log('✅ MetaMask detected, attempting connection...');
         
-        // Create provider and signer
-        provider = new ethers.BrowserProvider(window.ethereum);
+        // طلب الاتصال بـ MetaMask بطريقة متوافقة مع جميع الإصدارات
+        let accounts;
+        try {
+            // الطريقة الحديثة
+            accounts = await window.ethereum.request({ 
+                method: 'eth_requestAccounts' 
+            });
+        } catch (requestError) {
+            console.log('Modern request failed, trying legacy method...');
+            // الطريقة القديمة كخيار احتياطي
+            if (window.ethereum.enable) {
+                accounts = await window.ethereum.enable();
+            } else if (window.ethereum.selectedAddress) {
+                accounts = [window.ethereum.selectedAddress];
+            } else {
+                throw new Error('لا يمكن الوصول إلى حسابات MetaMask');
+            }
+        }
+        
+        // تحقق من وجود حسابات
+        if (!accounts || accounts.length === 0) {
+            throw new Error('لم يتم العثور على حسابات. يرجى فتح MetaMask والتأكد من تسجيل الدخول.');
+        }
+        
+        console.log('✅ Accounts found:', accounts);
+        
+        // إنشاء Provider و Signer مع معالجة الأخطاء
+        try {
+            provider = new ethers.BrowserProvider(window.ethereum);
+        } catch (providerError) {
+            console.error('Provider creation failed:', providerError);
+            // جرب الطريقة البديلة
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+        }
+        
         signer = await provider.getSigner();
         
-        // Get wallet info
+        // الحصول على معلومات المحفظة
         const address = await signer.getAddress();
-        const balance = await provider.getBalance(address);
-        const network = await provider.getNetwork();
+        const balanceBigInt = await provider.getBalance(address);
+        const balance = ethers.formatEther(balanceBigInt);
+        let network;
         
-        // Update state
+        try {
+            network = await provider.getNetwork();
+        } catch (networkError) {
+            console.warn('Could not get network info:', networkError);
+            network = { name: 'Unknown', chainId: 0 };
+        }
+        
+        // تحديث حالة التطبيق
         AppState.wallet = {
             connected: true,
             address: address,
-            balance: ethers.formatEther(balance),
-            network: network.name
+            balance: balance,
+            network: network.name || 'Unknown'
         };
         
-        // Update UI
+        // تحديث واجهة المستخدم
         updateWalletUI();
-        updateNetworkStatus(network.name, true);
+        updateNetworkStatus(network.name || 'Unknown', true);
         
         isConnected = true;
         updateStatus('✅ تم ربط المحفظة بنجاح', 'success');
         showNotification('تم ربط المحفظة بنجاح', 'success');
         
+        console.log('✅ Wallet connected successfully:', {
+            address: address,
+            balance: balance,
+            network: network.name
+        });
+        
     } catch (error) {
-        console.error('Wallet connection error:', error);
-        updateStatus('❌ خطأ في ربط المحفظة: ' + error.message, 'error');
-        showNotification('فشل في ربط المحفظة: ' + error.message, 'error');
+        console.error('❌ Wallet connection error:', error);
+        
+        // رسائل خطأ مخصصة
+        let errorMessage = error.message;
+        
+        if (error.message.includes('User rejected')) {
+            errorMessage = 'تم رفض طلب الاتصال من المستخدم';
+        } else if (error.message.includes('No active wallet')) {
+            errorMessage = 'لا توجد محفظة نشطة. تأكد من فتح MetaMask وتسجيل الدخول';
+        } else if (error.message.includes('eth_requestAccounts')) {
+            errorMessage = 'خطأ في طلب حسابات MetaMask. جرب إعادة تحميل الصفحة';
+        }
+        
+        updateStatus('❌ خطأ في ربط المحفظة: ' + errorMessage, 'error');
+        showNotification('فشل في ربط المحفظة: ' + errorMessage, 'error');
     } finally {
         hideLoading();
     }
 }
+
 
 // Contract Connection
 async function connectContract() {
@@ -1666,3 +1744,34 @@ window.showModal = showModal;
 window.hideModal = hideModal;
 
 console.log('🎉 Flash Loan Bot Advanced Interface JavaScript loaded successfully!');
+   // إعداد مستمعي أحداث MetaMask
+if (window.ethereum) {
+    // عند تغيير الحسابات
+    window.ethereum.on('accountsChanged', function (accounts) {
+        console.log('🔄 Accounts changed:', accounts);
+        if (accounts.length === 0) {
+            console.log('👋 User disconnected wallet');
+            location.reload();
+        } else {
+            console.log('🔄 User switched to account:', accounts[0]);
+            if (isConnected) {
+                location.reload();
+            }
+        }
+    });
+    
+    // عند تغيير الشبكة
+    window.ethereum.on('chainChanged', function (chainId) {
+        console.log('🔄 Chain changed to:', chainId);
+        location.reload();
+    });
+    
+    // عند قطع الاتصال
+    window.ethereum.on('disconnect', function () {
+        console.log('👋 MetaMask disconnected');
+        location.reload();
+    });
+    
+    console.log('✅ MetaMask event listeners setup complete');
+}
+
