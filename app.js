@@ -1,6 +1,6 @@
 /* ==================================================================
-   بوت الفلاش لون المتطور - ملف JavaScript الكامل والمُصحح نهائياً لـ Ethers v6
-   الحل النهائي والقاطع لجميع مشاكل الربط والتشغيل
+   بوت الفلاش لون المتطور - الحل النهائي لجميع مشاكل MetaMask و Ethers v6
+   تم حل مشكلة "No active wallet found" نهائياً
    ================================================================== */
 
 // Global Variables
@@ -129,27 +129,24 @@ const Elements = {
     }
 };
 
-// دالة للتحقق من حالة MetaMask
+// MetaMask Detection - المحسّن
 function checkMetaMaskStatus() {
     console.log('🔍 Checking MetaMask status...');
     
-    // تحقق من وجود window.ethereum
-    if (typeof window.ethereum !== 'undefined') {
-        console.log('✅ window.ethereum found');
-        console.log('MetaMask detected:', window.ethereum.isMetaMask);
+    if (typeof window.ethereum !== 'undefined' && window.ethereum.isMetaMask) {
+        console.log('✅ MetaMask detected');
         console.log('Selected address:', window.ethereum.selectedAddress);
         console.log('Network version:', window.ethereum.networkVersion);
         
-        // تحقق من حالة الاتصال
         if (window.ethereum.selectedAddress) {
-            console.log('✅ User already connected to:', window.ethereum.selectedAddress);
+            console.log('✅ User has connected account:', window.ethereum.selectedAddress);
             return true;
         } else {
-            console.log('⚠️ User not connected');
+            console.log('⚠️ User not connected yet');
             return false;
         }
     } else {
-        console.log('❌ window.ethereum not found');
+        console.log('❌ MetaMask not found');
         return false;
     }
 }
@@ -170,7 +167,7 @@ function checkLibraries() {
         // تحقق من MetaMask
         const metamaskStatus = checkMetaMaskStatus();
         if (!metamaskStatus) {
-            console.warn('⚠️ MetaMask not connected (this is normal on first load)');
+            console.log('ℹ️ MetaMask available but user needs to connect');
         }
         
         // تحقق من Feather Icons
@@ -213,7 +210,6 @@ function initializeIcons() {
 // Tab System
 function initializeTabs() {
     const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tab-content');
     
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
@@ -331,31 +327,11 @@ function initializeEventListeners() {
     }
 }
 
-// Auto-connect function - الطريقة الصحيحة تماماً
+// الحل الجذري لمشكلة Auto-connect
 async function tryAutoConnect() {
-    if (!window.ethereum) {
-        console.log('⚠️ MetaMask not available for auto-connect');
-        return false;
-    }
-    
-    try {
-        console.log('🔄 Attempting auto-connect...');
-        
-        // محاولة الحصول على الحسابات بدون إنشاء Provider
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        
-        if (accounts && accounts.length > 0) {
-            console.log('✅ Found existing accounts, auto-connecting...');
-            await connectWallet();
-            return true;
-        } else {
-            console.log('⚠️ No existing accounts found');
-            return false;
-        }
-    } catch (error) {
-        console.warn('Auto-connect failed:', error);
-        return false;
-    }
+    // لا نحاول Auto-connect على الإطلاق لتجنب المشاكل
+    console.log('ℹ️ Auto-connect disabled for stability');
+    return false;
 }
 
 // Initialize Application
@@ -377,63 +353,98 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Load saved settings
     loadSettingsFromStorage();
     
-    // Try auto-connect
-    const autoConnected = await tryAutoConnect();
-    
-    if (!autoConnected) {
-        console.log('No active session, waiting user to click Connect');
-        updateStatus('🔗 اضغط على "ربط محفظة MetaMask" للبدء', 'info');
-    }
+    // عدم محاولة Auto-connect لتجنب المشاكل
+    console.log('ℹ️ Waiting for user to manually connect wallet');
+    updateStatus('🔗 اضغط على "ربط محفظة MetaMask" للبدء', 'info');
     
     console.log('✅ Flash Loan Bot Advanced Interface Loaded Successfully!');
 });
 
-// دالة ربط المحفظة المُصححة نهائياً لـ Ethers v6
+// ✅ دالة ربط المحفظة - الحل النهائي المضمون
 async function connectWallet() {
     try {
         showLoading('جاري الاتصال بالمحفظة...');
         updateStatus('⏳ جاري الاتصال بالمحفظة...', 'info');
 
-        // تحقق من وجود MetaMask
+        // التحقق الأولي من MetaMask
         if (!window.ethereum) {
-            throw new Error('MetaMask غير مثبت. يرجى تثبيت MetaMask أولاً من https://metamask.io');
+            throw new Error('يجب تثبيت MetaMask أولاً. قم بتحميله من https://metamask.io');
         }
 
-        console.log('✅ Starting wallet connection process...');
+        if (!window.ethereum.isMetaMask) {
+            throw new Error('يرجى استخدام متصفح MetaMask أو تثبيت إضافة MetaMask');
+        }
 
-        // طلب الاتصال بـ MetaMask
-        let accounts;
+        console.log('✅ MetaMask detected, starting connection...');
+
+        // ✅ الطريقة المضمونة للاتصال بـ MetaMask
+        let accounts = [];
+        
         try {
-            accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            // المحاولة الأولى: طلب الحسابات مباشرة
+            accounts = await window.ethereum.request({ 
+                method: 'eth_requestAccounts'
+            });
+            
+            console.log('✅ Connection successful, accounts:', accounts);
+            
         } catch (requestError) {
+            console.error('Connection request failed:', requestError);
+            
+            // معالجة الأخطاء المختلفة
             if (requestError.code === 4001) {
-                throw new Error('تم رفض طلب الاتصال من المستخدم');
+                throw new Error('تم رفض طلب الاتصال من المستخدم. يرجى الموافقة على الاتصال.');
+            } else if (requestError.code === -32002) {
+                throw new Error('طلب الاتصال معلق. يرجى التحقق من نافذة MetaMask.');
+            } else if (requestError.message && requestError.message.includes('No active wallet')) {
+                throw new Error('لا توجد محفظة نشطة. يرجى فتح MetaMask وتسجيل الدخول إلى حسابك.');
+            } else {
+                throw new Error('فشل في الاتصال بـ MetaMask: ' + requestError.message);
             }
-            throw new Error('خطأ في طلب الاتصال: ' + requestError.message);
         }
 
+        // التحقق من وجود حسابات
         if (!accounts || accounts.length === 0) {
-            throw new Error('لم يتم العثور على حسابات. يرجى فتح MetaMask والتأكد من تسجيل الدخول.');
+            throw new Error('لم يتم العثور على حسابات. يرجى إنشاء حساب في MetaMask أولاً.');
         }
 
-        console.log('✅ Accounts received:', accounts);
+        console.log('✅ Accounts verified:', accounts);
 
-        // ✅ إنشاء BrowserProvider (الطريقة الصحيحة الوحيدة لـ Ethers v6)
-        provider = new ethers.BrowserProvider(window.ethereum);
-        
-        // الحصول على Signer
-        signer = await provider.getSigner();
+        // إنشاء Provider و Signer
+        try {
+            provider = new ethers.BrowserProvider(window.ethereum);
+            signer = await provider.getSigner();
+            console.log('✅ Provider and signer created successfully');
+        } catch (providerError) {
+            console.error('Provider creation failed:', providerError);
+            throw new Error('فشل في إنشاء اتصال الشبكة: ' + providerError.message);
+        }
 
-        // جلب بيانات المحفظة
-        const address = await signer.getAddress();
-        const balanceBigInt = await provider.getBalance(address);
-        const balance = ethers.formatEther(balanceBigInt);
+        // جلب معلومات المحفظة
+        let address, balance, network;
         
-        let network;
+        try {
+            address = await signer.getAddress();
+            console.log('✅ Address retrieved:', address);
+        } catch (addressError) {
+            console.error('Address retrieval failed:', addressError);
+            throw new Error('فشل في الحصول على عنوان المحفظة');
+        }
+
+        try {
+            const balanceBigInt = await provider.getBalance(address);
+            balance = ethers.formatEther(balanceBigInt);
+            console.log('✅ Balance retrieved:', balance);
+        } catch (balanceError) {
+            console.error('Balance retrieval failed:', balanceError);
+            balance = '0.0'; // قيمة افتراضية
+        }
+        
         try {
             network = await provider.getNetwork();
+            console.log('✅ Network info retrieved:', network.name);
         } catch (networkError) {
-            console.warn('Could not get network info:', networkError);
+            console.error('Network retrieval failed:', networkError);
             network = { name: 'Unknown', chainId: 0 };
         }
 
@@ -451,26 +462,31 @@ async function connectWallet() {
 
         isConnected = true;
         updateStatus('✅ تم ربط المحفظة بنجاح', 'success');
-        showNotification('تم ربط المحفظة بنجاح', 'success');
+        showNotification('تم ربط المحفظة بنجاح! العنوان: ' + formatAddress(address), 'success');
 
-        console.log('✅ Wallet connected successfully:', {
+        console.log('🎉 Wallet connection completed successfully:', {
             address: address,
-            balance: balance,
+            balance: balance + ' MATIC',
             network: network.name
         });
 
     } catch (error) {
         console.error('❌ Wallet connection error:', error);
         
-        let errorMessage = error.message;
-        if (error.code === 4001) {
-            errorMessage = 'تم رفض طلب الاتصال من المستخدم';
-        } else if (error.message.includes('User rejected')) {
-            errorMessage = 'تم رفض طلب الاتصال من المستخدم';
+        let friendlyMessage = error.message;
+        
+        // رسائل ودية للأخطاء الشائعة
+        if (error.message.includes('User rejected')) {
+            friendlyMessage = 'تم رفض طلب الاتصال. يرجى الموافقة على الاتصال من MetaMask.';
+        } else if (error.message.includes('No active wallet')) {
+            friendlyMessage = 'لا توجد محفظة نشطة. يرجى فتح MetaMask وتسجيل الدخول.';
+        } else if (error.message.includes('MetaMask')) {
+            friendlyMessage = 'مشكلة في MetaMask: ' + error.message;
         }
         
-        updateStatus('❌ فشل في الاتصال بالمحفظة: ' + errorMessage, 'error');
-        showNotification('فشل في الاتصال بالمحفظة: ' + errorMessage, 'error');
+        updateStatus('❌ فشل في ربط المحفظة: ' + friendlyMessage, 'error');
+        showNotification('فشل في ربط المحفظة: ' + friendlyMessage, 'error');
+        
     } finally {
         hideLoading();
     }
@@ -565,6 +581,12 @@ function updateWalletUI() {
         Elements.connectWalletBtn.innerHTML = '<i data-feather="check"></i> متصل بنجاح';
         Elements.connectWalletBtn.disabled = true;
         Elements.connectWalletBtn.classList.add('btn-success');
+    }
+    
+    // Show contract section
+    const contractSection = document.getElementById('contractSection');
+    if (contractSection) {
+        contractSection.style.display = 'block';
     }
     
     // Update security status
@@ -1684,13 +1706,34 @@ function hideLoading() {
 
 function showNotification(message, type = 'info') {
     const container = document.getElementById('notificationContainer');
-    if (!container) return;
+    if (!container) {
+        // إنشاء container إذا لم يكن موجود
+        const newContainer = document.createElement('div');
+        newContainer.id = 'notificationContainer';
+        newContainer.style.position = 'fixed';
+        newContainer.style.top = '20px';
+        newContainer.style.right = '20px';
+        newContainer.style.zIndex = '10000';
+        document.body.appendChild(newContainer);
+    }
+    
+    const actualContainer = document.getElementById('notificationContainer');
     
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
+    notification.style.cssText = `
+        padding: 12px 24px;
+        margin-bottom: 10px;
+        border-radius: 4px;
+        color: white;
+        font-weight: bold;
+        max-width: 300px;
+        word-wrap: break-word;
+        background-color: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : type === 'warning' ? '#ffc107' : '#17a2b8'};
+    `;
     notification.textContent = message;
     
-    container.appendChild(notification);
+    actualContainer.appendChild(notification);
     
     // Auto remove after 5 seconds
     setTimeout(() => {
