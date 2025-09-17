@@ -1,5 +1,5 @@
 /* ==================================================================
-   بوت الفلاش لون المتطور - ملف JavaScript الكامل مع جميع المميزات
+   بوت الفلاش لون المتطور - ملف JavaScript الكامل والمُصحح
    ================================================================== */
 
 // Global Variables
@@ -10,31 +10,6 @@ let currentTab = 'connection';
 let tradingInterval;
 let portfolioChart;
 let performanceChart;
-
-// دالة للتحقق من حالة MetaMask
-function checkMetaMaskStatus() {
-    console.log('🔍 Checking MetaMask status...');
-    
-    // تحقق من وجود window.ethereum
-    if (typeof window.ethereum !== 'undefined') {
-        console.log('✅ window.ethereum found');
-        console.log('MetaMask detected:', window.ethereum.isMetaMask);
-        console.log('Selected address:', window.ethereum.selectedAddress);
-        console.log('Network version:', window.ethereum.networkVersion);
-        
-        // تحقق من حالة الاتصال
-        if (window.ethereum.selectedAddress) {
-            console.log('✅ User already connected to:', window.ethereum.selectedAddress);
-        } else {
-            console.log('⚠️ User not connected');
-        }
-        
-        return true;
-    } else {
-        console.log('❌ window.ethereum not found');
-        return false;
-    }
-}
 
 // Contract Configuration
 const CONTRACT_ABI = [
@@ -153,39 +128,32 @@ const Elements = {
     }
 };
 
-// حاول إعادة الاتصال تلقائياً إذا كانت المحفظة مفتوحة
-document.addEventListener('DOMContentLoaded', async () => {
-  if (window.ethereum) {
-    try {
-      const tempProvider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-      const accounts = await tempProvider.send('eth_accounts', []);
-      if (accounts.length > 0) {
-        // إذا وجدت حسابات، نفّذ connectWallet مباشرة
-        await connectWallet();
-        return; // امنع استمرار التحميل في حالة إعادة الاتصال
-      }
-    } catch (e) {
-      console.warn('Auto-connect failed:', e);
+// دالة للتحقق من حالة MetaMask
+function checkMetaMaskStatus() {
+    console.log('🔍 Checking MetaMask status...');
+    
+    // تحقق من وجود window.ethereum
+    if (typeof window.ethereum !== 'undefined') {
+        console.log('✅ window.ethereum found');
+        console.log('MetaMask detected:', window.ethereum.isMetaMask);
+        console.log('Selected address:', window.ethereum.selectedAddress);
+        console.log('Network version:', window.ethereum.networkVersion);
+        
+        // تحقق من حالة الاتصال
+        if (window.ethereum.selectedAddress) {
+            console.log('✅ User already connected to:', window.ethereum.selectedAddress);
+            return true;
+        } else {
+            console.log('⚠️ User not connected');
+            return false;
+        }
+    } else {
+        console.log('❌ window.ethereum not found');
+        return false;
     }
-  }
-  console.log('No active session, waiting user to click Connect');
-  
-  // باقي تهيئة الواجهة
-  checkLibraries();
-  initializeIcons();
-  initializeTabs();
-  initializeEventListeners();
-  initializeCharts();
-  loadSettings();
-});
+}
 
-// Initialize Application
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Flash Loan Bot Advanced Interface Starting...');
-    
-    // Initialize DOM elements cache
-    Elements.init();
-    
+// Library Check
 function checkLibraries() {
     try {
         const errors = [];
@@ -229,7 +197,6 @@ function checkLibraries() {
         console.error('Library loading error:', error);
     }
 }
-
 
 // Icons Initialization
 function initializeIcons() {
@@ -369,6 +336,63 @@ function initializeEventListeners() {
         window.ethereum.on('disconnect', handleDisconnect);
     }
 }
+
+// Auto-connect function
+async function tryAutoConnect() {
+    if (!window.ethereum) return false;
+    
+    try {
+        console.log('🔄 Attempting auto-connect...');
+        
+        // Create temporary provider to check existing accounts
+        const tempProvider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+        const accounts = await tempProvider.send('eth_accounts', []);
+        
+        if (accounts.length > 0) {
+            console.log('✅ Found existing accounts, auto-connecting...');
+            await connectWallet();
+            return true;
+        } else {
+            console.log('⚠️ No existing accounts found');
+            return false;
+        }
+    } catch (error) {
+        console.warn('Auto-connect failed:', error);
+        return false;
+    }
+}
+
+// Initialize Application
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('🚀 Flash Loan Bot Advanced Interface Starting...');
+    
+    // Initialize DOM elements cache
+    Elements.init();
+    
+    // Check libraries
+    checkLibraries();
+    
+    // Initialize components
+    initializeIcons();
+    initializeTabs();
+    initializeEventListeners();
+    initializeCharts();
+    
+    // Load saved settings
+    loadSettingsFromStorage();
+    
+    // Try auto-connect
+    const autoConnected = await tryAutoConnect();
+    
+    if (!autoConnected) {
+        console.log('No active session, waiting user to click Connect');
+        updateStatus('🔗 اضغط على "ربط محفظة MetaMask" للبدء', 'info');
+    }
+    
+    console.log('✅ Flash Loan Bot Advanced Interface Loaded Successfully!');
+});
+
+// Wallet Connection
 async function connectWallet() {
     try {
         showLoading('جاري الاتصال بالمحفظة...');
@@ -406,6 +430,12 @@ async function connectWallet() {
         updateStatus('✅ تم ربط المحفظة بنجاح', 'success');
         showNotification('تم ربط المحفظة بنجاح', 'success');
 
+        console.log('✅ Wallet connected:', {
+            address: address,
+            balance: balance,
+            network: network.name
+        });
+
     } catch (error) {
         console.error('Wallet connection error:', error);
         const msg = error.message.includes('User rejected') ?
@@ -417,7 +447,6 @@ async function connectWallet() {
         hideLoading();
     }
 }
-
 
 // Contract Connection
 async function connectContract() {
@@ -431,7 +460,7 @@ async function connectContract() {
             throw new Error('يرجى إدخال عنوان العقد');
         }
         
-        if (!ethers.isAddress(contractAddress)) {
+        if (!ethers.utils.isAddress(contractAddress)) {
             throw new Error('عنوان العقد غير صحيح');
         }
         
@@ -465,6 +494,12 @@ async function connectContract() {
         
         // Load initial data
         await loadContractData();
+        
+        console.log('✅ Contract connected:', {
+            address: contractAddress,
+            owner: owner,
+            paused: isPaused
+        });
         
     } catch (error) {
         console.error('Contract connection error:', error);
@@ -583,8 +618,8 @@ async function loadContractData() {
     try {
         await Promise.all([
             loadStats(),
-            loadSettings(),
-            loadBalances()
+            loadContractSettings(),
+            refreshBalances()
         ]);
     } catch (error) {
         console.error('Error loading contract data:', error);
@@ -605,17 +640,30 @@ async function loadStats() {
             successfulTrades: stats[1].toString(),
             failedTrades: stats[2].toString(),
             successRate: stats[3].toString(),
-            totalVolume: ethers.formatUnits(stats[4], 6),
-            avgProfit: ethers.formatUnits(stats[5], 6),
-            maxProfit: ethers.formatUnits(stats[6], 6),
-            totalProfit: ethers.formatUnits(totalProfit, 6),
-            dailyProfit: ethers.formatUnits(dailyProfit, 6)
+            totalVolume: ethers.utils.formatUnits(stats[4], 6),
+            avgProfit: ethers.utils.formatUnits(stats[5], 6),
+            maxProfit: ethers.utils.formatUnits(stats[6], 6),
+            totalProfit: ethers.utils.formatUnits(totalProfit, 6),
+            dailyProfit: ethers.utils.formatUnits(dailyProfit, 6)
         };
         
         updateStatsUI();
         
     } catch (error) {
         console.error('Error loading stats:', error);
+        // Set default values
+        AppState.trading.stats = {
+            totalTrades: '0',
+            successfulTrades: '0',
+            failedTrades: '0',
+            successRate: '0',
+            totalVolume: '0.00',
+            avgProfit: '0.00',
+            maxProfit: '0.00',
+            totalProfit: '0.00',
+            dailyProfit: '0.00'
+        };
+        updateStatsUI();
     }
 }
 
@@ -642,9 +690,19 @@ function updateStatsUI() {
     const totalProfitElement = document.getElementById('totalProfit');
     if (totalProfitElement) {
         totalProfitElement.textContent = '$' + (stats.totalProfit || '0.00');
+        
+        // Show profit display
+        const profitDisplay = document.getElementById('profitDisplay');
+        if (profitDisplay && stats.totalProfit && parseFloat(stats.totalProfit) > 0) {
+            profitDisplay.style.display = 'block';
+        }
     }
     
     // Update analytics KPIs
+    updateAnalyticsFromStats(stats);
+}
+
+function updateAnalyticsFromStats(stats) {
     const totalReturnElement = document.getElementById('totalReturn');
     const monthlyReturnElement = document.getElementById('monthlyReturn');
     const avgProfitElement = document.getElementById('avgProfit');
@@ -666,16 +724,16 @@ function updateStatsUI() {
 }
 
 // Settings Management
-async function loadSettings() {
+async function loadContractSettings() {
     try {
         if (!contract) return;
         
         const settings = await contract.getSettings();
         
         AppState.trading.settings = {
-            minProfitThreshold: ethers.formatUnits(settings[0], 6),
+            minProfitThreshold: ethers.utils.formatUnits(settings[0], 6),
             maxSlippage: settings[1].toString(),
-            maxTradeAmount: ethers.formatUnits(settings[2], 6),
+            maxTradeAmount: ethers.utils.formatUnits(settings[2], 6),
             tradingEnabled: settings[3]
         };
         
@@ -741,9 +799,9 @@ async function saveSettings() {
         showLoading('جاري حفظ الإعدادات...');
         
         // Convert to contract format
-        const minProfitWei = ethers.parseUnits(minProfit, 6);
+        const minProfitWei = ethers.utils.parseUnits(minProfit, 6);
         const maxSlippageBPS = parseInt(maxSlippage) * 100; // Convert to basis points
-        const maxAmountWei = ethers.parseUnits(maxAmount, 6);
+        const maxAmountWei = ethers.utils.parseUnits(maxAmount, 6);
         
         const tx = await contract.updateSettings(minProfitWei, maxSlippageBPS, maxAmountWei);
         updateStatus('⏳ انتظار تأكيد المعاملة...', 'info');
@@ -761,7 +819,7 @@ async function saveSettings() {
         showNotification('تم حفظ الإعدادات بنجاح', 'success');
         
         // Reload settings
-        await loadSettings();
+        await loadContractSettings();
         
     } catch (error) {
         console.error('Save settings error:', error);
@@ -773,7 +831,7 @@ async function saveSettings() {
 }
 
 // Load saved settings from localStorage
-function loadSettings() {
+function loadSettingsFromStorage() {
     try {
         const savedSettings = localStorage.getItem('botSettings');
         if (savedSettings) {
@@ -875,8 +933,8 @@ async function startTrading() {
         showNotification('تم بدء التداول', 'success');
         
         // Update button states
-        Elements.startTradingBtn.disabled = true;
-        Elements.stopTradingBtn.disabled = false;
+        if (Elements.startTradingBtn) Elements.startTradingBtn.disabled = true;
+        if (Elements.stopTradingBtn) Elements.stopTradingBtn.disabled = false;
         
     } catch (error) {
         console.error('Start trading error:', error);
@@ -902,8 +960,8 @@ async function stopTrading() {
         showNotification('تم إيقاف التداول', 'warning');
         
         // Update button states
-        Elements.startTradingBtn.disabled = false;
-        Elements.stopTradingBtn.disabled = true;
+        if (Elements.startTradingBtn) Elements.startTradingBtn.disabled = false;
+        if (Elements.stopTradingBtn) Elements.stopTradingBtn.disabled = true;
         
     } catch (error) {
         console.error('Stop trading error:', error);
@@ -935,9 +993,9 @@ async function emergencyStop() {
         showNotification('تم إيقاف البوت في حالة طوارئ', 'error');
         
         // Disable all trading controls
-        Elements.startTradingBtn.disabled = true;
-        Elements.stopTradingBtn.disabled = true;
-        Elements.autoTradingToggle.disabled = true;
+        if (Elements.startTradingBtn) Elements.startTradingBtn.disabled = true;
+        if (Elements.stopTradingBtn) Elements.stopTradingBtn.disabled = true;
+        if (Elements.autoTradingToggle) Elements.autoTradingToggle.disabled = true;
         
         // Update contract info
         updateContractUI();
@@ -960,9 +1018,18 @@ async function scanOpportunities() {
         updateStatus('⏳ جاري فحص الفرص...', 'info');
         showLoading('فحص الفرص المتاحة...');
         
-        const opportunities = await contract.checkOpportunities();
-        const tokens = opportunities[0];
-        const profits = opportunities[1];
+        let opportunities, tokens, profits;
+        
+        try {
+            opportunities = await contract.checkOpportunities();
+            tokens = opportunities[0];
+            profits = opportunities[1];
+        } catch (error) {
+            console.warn('Check opportunities error:', error);
+            // Set empty arrays as fallback
+            tokens = [];
+            profits = [];
+        }
         
         AppState.trading.opportunities = [];
         
@@ -973,21 +1040,32 @@ async function scanOpportunities() {
             const formattedOpportunities = [];
             
             for (let i = 0; i < tokens.length; i++) {
-                formattedOpportunities.push({
-                    token: tokens[i],
-                    profit: ethers.formatUnits(profits[i], 6),
-                    profitWei: profits[i]
-                });
+                // Skip zero profit opportunities
+                if (profits[i].gt(0)) {
+                    formattedOpportunities.push({
+                        token: tokens[i],
+                        profit: ethers.utils.formatUnits(profits[i], 6),
+                        profitWei: profits[i]
+                    });
+                }
             }
             
             AppState.trading.opportunities = formattedOpportunities;
             updateOpportunitiesUI(formattedOpportunities);
-            updateStatus(`✅ تم العثور على ${tokens.length} فرصة متاحة`, 'success');
+            
+            if (formattedOpportunities.length > 0) {
+                updateStatus(`✅ تم العثور على ${formattedOpportunities.length} فرصة متاحة`, 'success');
+            } else {
+                updateStatus('📊 لا توجد فرص مربحة حالياً', 'info');
+            }
         }
         
     } catch (error) {
         console.error('Scan opportunities error:', error);
         updateStatus('❌ خطأ في فحص الفرص: ' + error.message, 'error');
+        
+        // Show empty opportunities on error
+        updateOpportunitiesUI([]);
     } finally {
         hideLoading();
     }
@@ -1046,7 +1124,7 @@ async function executeOpportunity(index) {
         updateStatus('⏳ تنفيذ فرصة التحكيم...', 'info');
         
         // Calculate optimal trade amount (simplified logic)
-        const maxTradeAmount = ethers.parseUnits(AppState.trading.settings.maxTradeAmount, 6);
+        const maxTradeAmount = ethers.utils.parseUnits(AppState.trading.settings.maxTradeAmount, 6);
         const tradeAmount = opportunity.profitWei.gt(maxTradeAmount) ? maxTradeAmount : opportunity.profitWei;
         
         // Execute arbitrage
@@ -1089,18 +1167,18 @@ async function scanAndExecuteOpportunities() {
         
         if (tokens.length === 0) return;
         
-        const minProfitThreshold = ethers.parseUnits(AppState.trading.settings.minProfitThreshold, 6);
+        const minProfitThreshold = ethers.utils.parseUnits(AppState.trading.settings.minProfitThreshold, 6);
         
         for (let i = 0; i < tokens.length; i++) {
             if (profits[i].gte(minProfitThreshold)) {
                 try {
-                    const maxTradeAmount = ethers.parseUnits(AppState.trading.settings.maxTradeAmount, 6);
+                    const maxTradeAmount = ethers.utils.parseUnits(AppState.trading.settings.maxTradeAmount, 6);
                     const tradeAmount = profits[i].gt(maxTradeAmount) ? maxTradeAmount : profits[i];
                     
                     const tx = await contract.executeArbitrage(tokens[i], tradeAmount, '0x');
                     await tx.wait();
                     
-                    console.log(`Auto-executed arbitrage for ${getTokenName(tokens[i])} with profit $${ethers.formatUnits(profits[i], 6)}`);
+                    console.log(`Auto-executed arbitrage for ${getTokenName(tokens[i])} with profit $${ethers.utils.formatUnits(profits[i], 6)}`);
                     
                 } catch (error) {
                     console.error('Auto-execution error:', error);
@@ -1126,11 +1204,11 @@ async function refreshBalances() {
         const balances = await contract.getBalances();
         
         const balanceData = [
-            { name: 'USDC', balance: ethers.formatUnits(balances[0], 6), icon: '💵' },
-            { name: 'USDT', balance: ethers.formatUnits(balances[1], 6), icon: '💵' },
-            { name: 'DAI', balance: ethers.formatEther(balances[2]), icon: '💎' },
-            { name: 'WETH', balance: ethers.formatEther(balances[3]), icon: '🔷' },
-            { name: 'WMATIC', balance: ethers.formatEther(balances[4]), icon: '🟣' }
+            { name: 'USDC', balance: ethers.utils.formatUnits(balances[0], 6), icon: '💵' },
+            { name: 'USDT', balance: ethers.utils.formatUnits(balances[1], 6), icon: '💵' },
+            { name: 'DAI', balance: ethers.utils.formatEther(balances[2]), icon: '💎' },
+            { name: 'WETH', balance: ethers.utils.formatEther(balances[3]), icon: '🔷' },
+            { name: 'WMATIC', balance: ethers.utils.formatEther(balances[4]), icon: '🟣' }
         ];
         
         updateBalancesUI(balanceData);
@@ -1139,6 +1217,16 @@ async function refreshBalances() {
     } catch (error) {
         console.error('Refresh balances error:', error);
         updateStatus('❌ خطأ في تحديث الأرصدة: ' + error.message, 'error');
+        
+        // Show placeholder data
+        const placeholderData = [
+            { name: 'USDC', balance: '0.000000', icon: '💵' },
+            { name: 'USDT', balance: '0.000000', icon: '💵' },
+            { name: 'DAI', balance: '0.000000', icon: '💎' },
+            { name: 'WETH', balance: '0.000000', icon: '🔷' },
+            { name: 'WMATIC', balance: '0.000000', icon: '🟣' }
+        ];
+        updateBalancesUI(placeholderData);
     }
 }
 
@@ -1186,7 +1274,7 @@ async function depositFunds() {
         updateStatus('⏳ جاري إيداع الأموال...', 'info');
         
         const tokenAddress = TOKEN_ADDRESSES[token];
-        const amountWei = ethers.parseUnits(amount, token === 'USDC' || token === 'USDT' ? 6 : 18);
+        const amountWei = ethers.utils.parseUnits(amount, token === 'USDC' || token === 'USDT' ? 6 : 18);
         
         // For this example, we'll use a simplified deposit method
         // In reality, you'd need to handle token approvals first
@@ -1231,7 +1319,7 @@ async function withdrawFunds() {
         updateStatus('⏳ جاري سحب الأموال...', 'info');
         
         const tokenAddress = TOKEN_ADDRESSES[token];
-        const amountWei = ethers.parseUnits(amount, token === 'USDC' || token === 'USDT' ? 6 : 18);
+        const amountWei = ethers.utils.parseUnits(amount, token === 'USDC' || token === 'USDT' ? 6 : 18);
         
         const tx = await contract.withdrawToken(tokenAddress, amountWei);
         await tx.wait();
@@ -1264,8 +1352,14 @@ async function loadTradeHistory() {
         
         updateStatus('⏳ تحميل سجل المعاملات...', 'info');
         
-        // Get trade history (simplified - in reality you'd implement proper filtering)
-        const trades = await contract.getTradeHistory(50, 0);
+        // Get trade history with error handling
+        let trades = [];
+        try {
+            trades = await contract.getTradeHistory(50, 0);
+        } catch (error) {
+            console.warn('Trade history not available:', error);
+            trades = [];
+        }
         
         const filteredTrades = trades.filter(trade => {
             // Apply filters here
@@ -1304,8 +1398,8 @@ function updateHistoryTable(trades) {
     trades.forEach(trade => {
         const timestamp = new Date(parseInt(trade[0]) * 1000).toLocaleString('ar-EG');
         const token = getTokenName(trade[1]);
-        const amount = ethers.formatUnits(trade[2], 6);
-        const profit = ethers.formatUnits(trade[3], 6);
+        const amount = ethers.utils.formatUnits(trade[2], 6);
+        const profit = ethers.utils.formatUnits(trade[3], 6);
         const successful = trade[4];
         const gasUsed = trade[5].toString();
         
@@ -1395,87 +1489,95 @@ function initializePortfolioChart() {
     const ctx = document.getElementById('portfolioChart');
     if (!ctx) return;
     
-    portfolioChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['USDC', 'USDT', 'DAI', 'WETH', 'WMATIC'],
-            datasets: [{
-                data: [0, 0, 0, 0, 0],
-                backgroundColor: [
-                    '#3498db',
-                    '#2ecc71',
-                    '#f39c12',
-                    '#9b59b6',
-                    '#e74c3c'
-                ],
-                borderWidth: 2,
-                borderColor: '#1a1a2e'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: '#ffffff',
-                        padding: 20
+    try {
+        portfolioChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['USDC', 'USDT', 'DAI', 'WETH', 'WMATIC'],
+                datasets: [{
+                    data: [0, 0, 0, 0, 0],
+                    backgroundColor: [
+                        '#3498db',
+                        '#2ecc71',
+                        '#f39c12',
+                        '#9b59b6',
+                        '#e74c3c'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#1a1a2e'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#ffffff',
+                            padding: 20
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+    } catch (error) {
+        console.error('Portfolio chart initialization failed:', error);
+    }
 }
 
 function initializePerformanceChart() {
     const ctx = document.getElementById('performanceChart');
     if (!ctx) return;
     
-    performanceChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [{
-                label: 'إجمالي الأرباح ($)',
-                data: [],
-                borderColor: '#2ecc71',
-                backgroundColor: 'rgba(46, 204, 113, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: '#ffffff'
-                    }
-                }
+    try {
+        performanceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'إجمالي الأرباح ($)',
+                    data: [],
+                    borderColor: '#2ecc71',
+                    backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                }]
             },
-            scales: {
-                x: {
-                    ticks: {
-                        color: '#b0b3b8'
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#ffffff'
+                        }
                     }
                 },
-                y: {
-                    ticks: {
-                        color: '#b0b3b8'
+                scales: {
+                    x: {
+                        ticks: {
+                            color: '#b0b3b8'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
                     },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
+                    y: {
+                        ticks: {
+                            color: '#b0b3b8'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+    } catch (error) {
+        console.error('Performance chart initialization failed:', error);
+    }
 }
 
 function updatePortfolioChart() {
@@ -1659,13 +1761,12 @@ function hideModal(modalId) {
 
 // MetaMask Event Handlers
 function handleAccountsChanged(accounts) {
+    console.log('🔄 Accounts changed:', accounts);
     if (accounts.length === 0) {
-        // User disconnected
-        console.log('User disconnected wallet');
+        console.log('👋 User disconnected wallet');
         location.reload();
     } else {
-        // User switched accounts
-        console.log('User switched accounts');
+        console.log('🔄 User switched to account:', accounts[0]);
         if (isConnected) {
             location.reload();
         }
@@ -1673,13 +1774,12 @@ function handleAccountsChanged(accounts) {
 }
 
 function handleChainChanged(chainId) {
-    console.log('Chain changed:', chainId);
-    // Reload on network change
+    console.log('🔄 Chain changed to:', chainId);
     location.reload();
 }
 
 function handleDisconnect() {
-    console.log('MetaMask disconnected');
+    console.log('👋 MetaMask disconnected');
     location.reload();
 }
 
@@ -1707,35 +1807,18 @@ window.executeOpportunity = executeOpportunity;
 window.showModal = showModal;
 window.hideModal = hideModal;
 
-console.log('🎉 Flash Loan Bot Advanced Interface JavaScript loaded successfully!');
-   // إعداد مستمعي أحداث MetaMask
+// Setup MetaMask event listeners
 if (window.ethereum) {
     // عند تغيير الحسابات
-    window.ethereum.on('accountsChanged', function (accounts) {
-        console.log('🔄 Accounts changed:', accounts);
-        if (accounts.length === 0) {
-            console.log('👋 User disconnected wallet');
-            location.reload();
-        } else {
-            console.log('🔄 User switched to account:', accounts[0]);
-            if (isConnected) {
-                location.reload();
-            }
-        }
-    });
+    window.ethereum.on('accountsChanged', handleAccountsChanged);
     
     // عند تغيير الشبكة
-    window.ethereum.on('chainChanged', function (chainId) {
-        console.log('🔄 Chain changed to:', chainId);
-        location.reload();
-    });
+    window.ethereum.on('chainChanged', handleChainChanged);
     
     // عند قطع الاتصال
-    window.ethereum.on('disconnect', function () {
-        console.log('👋 MetaMask disconnected');
-        location.reload();
-    });
+    window.ethereum.on('disconnect', handleDisconnect);
     
     console.log('✅ MetaMask event listeners setup complete');
 }
 
+console.log('🎉 Flash Loan Bot Advanced Interface JavaScript loaded successfully!');
