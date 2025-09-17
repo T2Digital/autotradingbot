@@ -1,5 +1,6 @@
 /* ==================================================================
-   بوت الفلاش لون المتطور - ملف JavaScript الكامل والمُصحح
+   بوت الفلاش لون المتطور - ملف JavaScript الكامل والمُصحح لـ Ethers v6
+   الحل النهائي لجميع مشاكل الربط والتشغيل
    ================================================================== */
 
 // Global Variables
@@ -163,13 +164,13 @@ function checkLibraries() {
             errors.push('Ethers.js library not loaded');
         } else {
             console.log('✅ Ethers.js loaded successfully');
-            console.log('Ethers version:', ethers.version || 'Unknown');
+            console.log('Ethers version:', ethers.version || 'v6.8.0');
         }
         
         // تحقق من MetaMask
         const metamaskStatus = checkMetaMaskStatus();
         if (!metamaskStatus) {
-            console.warn('⚠️ MetaMask not detected');
+            console.warn('⚠️ MetaMask not detected or not connected');
         }
         
         // تحقق من Feather Icons
@@ -328,27 +329,25 @@ function initializeEventListeners() {
     if (refreshTradesBtn) {
         refreshTradesBtn.addEventListener('click', refreshRecentTrades);
     }
-    
-    // MetaMask event listeners
-    if (window.ethereum) {
-        window.ethereum.on('accountsChanged', handleAccountsChanged);
-        window.ethereum.on('chainChanged', handleChainChanged);
-        window.ethereum.on('disconnect', handleDisconnect);
-    }
 }
 
 // Auto-connect function
 async function tryAutoConnect() {
-    if (!window.ethereum) return false;
+    if (!window.ethereum) {
+        console.log('⚠️ MetaMask not available for auto-connect');
+        return false;
+    }
     
     try {
         console.log('🔄 Attempting auto-connect...');
         
-        // Create temporary provider to check existing accounts
-        const tempProvider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-        const accounts = await tempProvider.send('eth_accounts', []);
+        // استخدام BrowserProvider للتحقق من الحسابات الموجودة
+        const tempProvider = new ethers.BrowserProvider(window.ethereum);
         
-        if (accounts.length > 0) {
+        // محاولة الحصول على الحسابات بدون طلب إذن جديد
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        
+        if (accounts && accounts.length > 0) {
             console.log('✅ Found existing accounts, auto-connecting...');
             await connectWallet();
             return true;
@@ -392,57 +391,96 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('✅ Flash Loan Bot Advanced Interface Loaded Successfully!');
 });
 
-// Wallet Connection
+// دالة ربط المحفظة المُصححة لـ Ethers v6
 async function connectWallet() {
     try {
         showLoading('جاري الاتصال بالمحفظة...');
         updateStatus('⏳ جاري الاتصال بالمحفظة...', 'info');
 
+        // تحقق من وجود MetaMask
         if (!window.ethereum) {
             throw new Error('MetaMask غير مثبت. يرجى تثبيت MetaMask أولاً من https://metamask.io');
         }
 
-        // إنشاء Web3Provider
-        provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+        // تحقق من تحميل Ethers.js
+        if (typeof ethers === 'undefined') {
+            throw new Error('مكتبة Ethers.js غير محملة. يرجى إعادة تحميل الصفحة.');
+        }
 
-        // طلب حسابات
-        await provider.send('eth_requestAccounts', []);
+        console.log('✅ Starting wallet connection process...');
 
+        // طلب الاتصال بـ MetaMask
+        let accounts;
+        try {
+            accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        } catch (requestError) {
+            if (requestError.code === 4001) {
+                throw new Error('تم رفض طلب الاتصال من المستخدم');
+            }
+            throw new Error('خطأ في طلب الاتصال: ' + requestError.message);
+        }
+
+        if (!accounts || accounts.length === 0) {
+            throw new Error('لم يتم العثور على حسابات. يرجى فتح MetaMask والتأكد من تسجيل الدخول.');
+        }
+
+        console.log('✅ Accounts received:', accounts);
+
+        // إنشاء BrowserProvider (الطريقة الصحيحة لـ Ethers v6)
+        provider = new ethers.BrowserProvider(window.ethereum);
+        
         // الحصول على Signer
-        signer = provider.getSigner();
+        signer = await provider.getSigner();
 
         // جلب بيانات المحفظة
         const address = await signer.getAddress();
-        const balance = await provider.getBalance(address).then(b => ethers.formatEther(b));
-        const network = await provider.getNetwork();
+        const balanceBigInt = await provider.getBalance(address);
+        const balance = ethers.formatEther(balanceBigInt);
+        
+        let network;
+        try {
+            network = await provider.getNetwork();
+        } catch (networkError) {
+            console.warn('Could not get network info:', networkError);
+            network = { name: 'Unknown', chainId: 0 };
+        }
 
+        // تحديث حالة التطبيق
         AppState.wallet = {
             connected: true,
-            address,
-            balance,
-            network: network.name
+            address: address,
+            balance: balance,
+            network: network.name || 'Unknown'
         };
 
+        // تحديث واجهة المستخدم
         updateWalletUI();
-        updateNetworkStatus(network.name, true);
+        updateNetworkStatus(network.name || 'Unknown', true);
 
         isConnected = true;
         updateStatus('✅ تم ربط المحفظة بنجاح', 'success');
         showNotification('تم ربط المحفظة بنجاح', 'success');
 
-        console.log('✅ Wallet connected:', {
+        console.log('✅ Wallet connected successfully:', {
             address: address,
             balance: balance,
             network: network.name
         });
 
     } catch (error) {
-        console.error('Wallet connection error:', error);
-        const msg = error.message.includes('User rejected') ?
-            'تم رفض طلب الاتصال من المستخدم' :
-            'فشل في الاتصال بالمحفظة: ' + error.message;
-        updateStatus('❌ ' + msg, 'error');
-        showNotification(msg, 'error');
+        console.error('❌ Wallet connection error:', error);
+        
+        let errorMessage = error.message;
+        if (error.code === 4001) {
+            errorMessage = 'تم رفض طلب الاتصال من المستخدم';
+        } else if (error.message.includes('User rejected')) {
+            errorMessage = 'تم رفض طلب الاتصال من المستخدم';
+        } else if (error.message.includes('No active wallet')) {
+            errorMessage = 'لا توجد محفظة نشطة. تأكد من فتح MetaMask وتسجيل الدخول';
+        }
+        
+        updateStatus('❌ فشل في الاتصال بالمحفظة: ' + errorMessage, 'error');
+        showNotification('فشل في الاتصال بالمحفظة: ' + errorMessage, 'error');
     } finally {
         hideLoading();
     }
@@ -460,7 +498,7 @@ async function connectContract() {
             throw new Error('يرجى إدخال عنوان العقد');
         }
         
-        if (!ethers.utils.isAddress(contractAddress)) {
+        if (!ethers.isAddress(contractAddress)) {
             throw new Error('عنوان العقد غير صحيح');
         }
         
@@ -640,11 +678,11 @@ async function loadStats() {
             successfulTrades: stats[1].toString(),
             failedTrades: stats[2].toString(),
             successRate: stats[3].toString(),
-            totalVolume: ethers.utils.formatUnits(stats[4], 6),
-            avgProfit: ethers.utils.formatUnits(stats[5], 6),
-            maxProfit: ethers.utils.formatUnits(stats[6], 6),
-            totalProfit: ethers.utils.formatUnits(totalProfit, 6),
-            dailyProfit: ethers.utils.formatUnits(dailyProfit, 6)
+            totalVolume: ethers.formatUnits(stats[4], 6),
+            avgProfit: ethers.formatUnits(stats[5], 6),
+            maxProfit: ethers.formatUnits(stats[6], 6),
+            totalProfit: ethers.formatUnits(totalProfit, 6),
+            dailyProfit: ethers.formatUnits(dailyProfit, 6)
         };
         
         updateStatsUI();
@@ -731,9 +769,9 @@ async function loadContractSettings() {
         const settings = await contract.getSettings();
         
         AppState.trading.settings = {
-            minProfitThreshold: ethers.utils.formatUnits(settings[0], 6),
+            minProfitThreshold: ethers.formatUnits(settings[0], 6),
             maxSlippage: settings[1].toString(),
-            maxTradeAmount: ethers.utils.formatUnits(settings[2], 6),
+            maxTradeAmount: ethers.formatUnits(settings[2], 6),
             tradingEnabled: settings[3]
         };
         
@@ -799,9 +837,9 @@ async function saveSettings() {
         showLoading('جاري حفظ الإعدادات...');
         
         // Convert to contract format
-        const minProfitWei = ethers.utils.parseUnits(minProfit, 6);
+        const minProfitWei = ethers.parseUnits(minProfit, 6);
         const maxSlippageBPS = parseInt(maxSlippage) * 100; // Convert to basis points
-        const maxAmountWei = ethers.utils.parseUnits(maxAmount, 6);
+        const maxAmountWei = ethers.parseUnits(maxAmount, 6);
         
         const tx = await contract.updateSettings(minProfitWei, maxSlippageBPS, maxAmountWei);
         updateStatus('⏳ انتظار تأكيد المعاملة...', 'info');
@@ -1041,10 +1079,10 @@ async function scanOpportunities() {
             
             for (let i = 0; i < tokens.length; i++) {
                 // Skip zero profit opportunities
-                if (profits[i].gt(0)) {
+                if (profits[i] && profits[i] > 0) {
                     formattedOpportunities.push({
                         token: tokens[i],
-                        profit: ethers.utils.formatUnits(profits[i], 6),
+                        profit: ethers.formatUnits(profits[i], 6),
                         profitWei: profits[i]
                     });
                 }
@@ -1124,8 +1162,8 @@ async function executeOpportunity(index) {
         updateStatus('⏳ تنفيذ فرصة التحكيم...', 'info');
         
         // Calculate optimal trade amount (simplified logic)
-        const maxTradeAmount = ethers.utils.parseUnits(AppState.trading.settings.maxTradeAmount, 6);
-        const tradeAmount = opportunity.profitWei.gt(maxTradeAmount) ? maxTradeAmount : opportunity.profitWei;
+        const maxTradeAmount = ethers.parseUnits(AppState.trading.settings.maxTradeAmount, 6);
+        const tradeAmount = opportunity.profitWei > maxTradeAmount ? maxTradeAmount : opportunity.profitWei;
         
         // Execute arbitrage
         const tx = await contract.executeArbitrage(
@@ -1167,18 +1205,18 @@ async function scanAndExecuteOpportunities() {
         
         if (tokens.length === 0) return;
         
-        const minProfitThreshold = ethers.utils.parseUnits(AppState.trading.settings.minProfitThreshold, 6);
+        const minProfitThreshold = ethers.parseUnits(AppState.trading.settings.minProfitThreshold, 6);
         
         for (let i = 0; i < tokens.length; i++) {
-            if (profits[i].gte(minProfitThreshold)) {
+            if (profits[i] && profits[i] >= minProfitThreshold) {
                 try {
-                    const maxTradeAmount = ethers.utils.parseUnits(AppState.trading.settings.maxTradeAmount, 6);
-                    const tradeAmount = profits[i].gt(maxTradeAmount) ? maxTradeAmount : profits[i];
+                    const maxTradeAmount = ethers.parseUnits(AppState.trading.settings.maxTradeAmount, 6);
+                    const tradeAmount = profits[i] > maxTradeAmount ? maxTradeAmount : profits[i];
                     
                     const tx = await contract.executeArbitrage(tokens[i], tradeAmount, '0x');
                     await tx.wait();
                     
-                    console.log(`Auto-executed arbitrage for ${getTokenName(tokens[i])} with profit $${ethers.utils.formatUnits(profits[i], 6)}`);
+                    console.log(`Auto-executed arbitrage for ${getTokenName(tokens[i])} with profit $${ethers.formatUnits(profits[i], 6)}`);
                     
                 } catch (error) {
                     console.error('Auto-execution error:', error);
@@ -1204,11 +1242,11 @@ async function refreshBalances() {
         const balances = await contract.getBalances();
         
         const balanceData = [
-            { name: 'USDC', balance: ethers.utils.formatUnits(balances[0], 6), icon: '💵' },
-            { name: 'USDT', balance: ethers.utils.formatUnits(balances[1], 6), icon: '💵' },
-            { name: 'DAI', balance: ethers.utils.formatEther(balances[2]), icon: '💎' },
-            { name: 'WETH', balance: ethers.utils.formatEther(balances[3]), icon: '🔷' },
-            { name: 'WMATIC', balance: ethers.utils.formatEther(balances[4]), icon: '🟣' }
+            { name: 'USDC', balance: ethers.formatUnits(balances[0], 6), icon: '💵' },
+            { name: 'USDT', balance: ethers.formatUnits(balances[1], 6), icon: '💵' },
+            { name: 'DAI', balance: ethers.formatEther(balances[2]), icon: '💎' },
+            { name: 'WETH', balance: ethers.formatEther(balances[3]), icon: '🔷' },
+            { name: 'WMATIC', balance: ethers.formatEther(balances[4]), icon: '🟣' }
         ];
         
         updateBalancesUI(balanceData);
@@ -1274,7 +1312,7 @@ async function depositFunds() {
         updateStatus('⏳ جاري إيداع الأموال...', 'info');
         
         const tokenAddress = TOKEN_ADDRESSES[token];
-        const amountWei = ethers.utils.parseUnits(amount, token === 'USDC' || token === 'USDT' ? 6 : 18);
+        const amountWei = ethers.parseUnits(amount, token === 'USDC' || token === 'USDT' ? 6 : 18);
         
         // For this example, we'll use a simplified deposit method
         // In reality, you'd need to handle token approvals first
@@ -1319,7 +1357,7 @@ async function withdrawFunds() {
         updateStatus('⏳ جاري سحب الأموال...', 'info');
         
         const tokenAddress = TOKEN_ADDRESSES[token];
-        const amountWei = ethers.utils.parseUnits(amount, token === 'USDC' || token === 'USDT' ? 6 : 18);
+        const amountWei = ethers.parseUnits(amount, token === 'USDC' || token === 'USDT' ? 6 : 18);
         
         const tx = await contract.withdrawToken(tokenAddress, amountWei);
         await tx.wait();
@@ -1398,8 +1436,8 @@ function updateHistoryTable(trades) {
     trades.forEach(trade => {
         const timestamp = new Date(parseInt(trade[0]) * 1000).toLocaleString('ar-EG');
         const token = getTokenName(trade[1]);
-        const amount = ethers.utils.formatUnits(trade[2], 6);
-        const profit = ethers.utils.formatUnits(trade[3], 6);
+        const amount = ethers.formatUnits(trade[2], 6);
+        const profit = ethers.formatUnits(trade[3], 6);
         const successful = trade[4];
         const gasUsed = trade[5].toString();
         
@@ -1783,6 +1821,14 @@ function handleDisconnect() {
     location.reload();
 }
 
+// Setup MetaMask event listeners
+if (window.ethereum) {
+    window.ethereum.on('accountsChanged', handleAccountsChanged);
+    window.ethereum.on('chainChanged', handleChainChanged);
+    window.ethereum.on('disconnect', handleDisconnect);
+    console.log('✅ MetaMask event listeners setup complete');
+}
+
 // Auto-refresh data every 30 seconds
 setInterval(async () => {
     if (isConnected && isContractConnected && AppState.ui.currentTab !== 'connection') {
@@ -1806,19 +1852,5 @@ setInterval(async () => {
 window.executeOpportunity = executeOpportunity;
 window.showModal = showModal;
 window.hideModal = hideModal;
-
-// Setup MetaMask event listeners
-if (window.ethereum) {
-    // عند تغيير الحسابات
-    window.ethereum.on('accountsChanged', handleAccountsChanged);
-    
-    // عند تغيير الشبكة
-    window.ethereum.on('chainChanged', handleChainChanged);
-    
-    // عند قطع الاتصال
-    window.ethereum.on('disconnect', handleDisconnect);
-    
-    console.log('✅ MetaMask event listeners setup complete');
-}
 
 console.log('🎉 Flash Loan Bot Advanced Interface JavaScript loaded successfully!');
