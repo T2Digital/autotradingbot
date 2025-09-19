@@ -9,7 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/ethers@6.8.0/dist/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/feather-icons@4.29.2/dist/feather.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-    
+    <script src="flashloan-zero-capital.js"></script>
+
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e94560' stroke-width='2'><circle cx='12' cy='12' r='10'/><path d='m9 12 2 2 4-4'/></svg>">
     
@@ -187,7 +188,123 @@
                             </div>
                         </div>
                     </div>
+<!-- أزرار تفعيل الفلاش لون بدون رأس مال -->
+<div class="flash-loan-activation" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 15px; margin: 20px 0;">
+    <h3 style="color: white; text-align: center; margin-bottom: 20px;">
+        🚀 تفعيل الفلاش لون بدون رأس مال
+    </h3>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <button onclick="startFlashLoanHunting()" class="btn btn-success" style="padding: 15px; font-size: 16px; font-weight: bold;">
+            🏹 بدء صيد الفرص
+        </button>
+        
+        <button onclick="stopFlashLoanHunting()" class="btn btn-danger" style="padding: 15px; font-size: 16px; font-weight: bold;">
+            ⏸️ إيقاف الصيد
+        </button>
+        
+        <button onclick="detectRealArbitrageOpportunities()" class="btn btn-info" style="padding: 15px; font-size: 16px; font-weight: bold;">
+            🔍 فحص الفرص الحالية
+        </button>
+        
+        <button onclick="testFlashLoanConnection()" class="btn btn-warning" style="padding: 15px; font-size: 16px; font-weight: bold;">
+            🧪 اختبار الاتصال
+        </button>
+    </div>
+    
+    <div style="margin-top: 15px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; color: white;">
+        <h4 style="margin: 0 0 10px 0;">📊 إحصائيات الفلاش لون:</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center;">
+            <div>
+                <strong>الصفقات الناجحة:</strong><br>
+                <span id="flashLoanSuccessCount" style="font-size: 24px; color: #4CAF50;">0</span>
+            </div>
+            <div>
+                <strong>إجمالي الأرباح:</strong><br>
+                <span id="flashLoanTotalProfit" style="font-size: 24px; color: #2196F3;">$0.00</span>
+            </div>
+            <div>
+                <strong>معدل النجاح:</strong><br>
+                <span id="flashLoanSuccessRate" style="font-size: 24px; color: #FF9800;">0%</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="flashLoanStatus" style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; color: white; text-align: center;">
+        💤 البوت في وضع الاستعداد - اضغط "بدء صيد الفرص" للتفعيل
+    </div>
+</div>
 
+<script>
+// دالة اختبار الاتصال
+async function testFlashLoanConnection() {
+    try {
+        updateStatus('🧪 اختبار اتصال الفلاش لون...', 'info');
+        showLoading('اختبار الاتصال...');
+        
+        if (!contract) {
+            throw new Error('العقد غير متصل');
+        }
+        
+        // اختبار استدعاء دالة بسيطة من العقد
+        const settings = await contract.getSettings();
+        console.log('✅ العقد متصل، الإعدادات:', settings);
+        
+        // اختبار الحصول على سعر من QuickSwap
+        const quickswapRouter = new ethers.Contract(
+            "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff",
+            ["function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts)"],
+            provider
+        );
+        
+        const testAmount = ethers.parseUnits("1000", 6);
+        const path = ["0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"]; // USDC -> USDT
+        
+        const prices = await quickswapRouter.getAmountsOut(testAmount, path);
+        console.log('✅ QuickSwap متصل، سعر الاختبار:', ethers.formatUnits(prices[1], 6));
+        
+        updateStatus('✅ جميع الاتصالات تعمل بنجاح!', 'success');
+        showNotification('🎉 البوت جاهز للعمل! جميع الاتصالات سليمة', 'success');
+        
+        // تحديث حالة الفلاش لون
+        document.getElementById('flashLoanStatus').innerHTML = '✅ البوت جاهز - جميع الأنظمة تعمل بنجاح!';
+        document.getElementById('flashLoanStatus').style.background = 'rgba(76, 175, 80, 0.3)';
+        
+    } catch (error) {
+        console.error('❌ فشل اختبار الاتصال:', error);
+        updateStatus('❌ فشل في اختبار الاتصال: ' + error.message, 'error');
+        showNotification('فشل في اختبار الاتصال', 'error');
+        
+        document.getElementById('flashLoanStatus').innerHTML = '❌ مشكلة في الاتصال - تحقق من الشبكة';
+        document.getElementById('flashLoanStatus').style.background = 'rgba(244, 67, 54, 0.3)';
+    } finally {
+        hideLoading();
+    }
+}
+
+// تحديث إحصائيات الفلاش لون في الواجهة
+function updateFlashLoanStats(successCount, totalProfit, successRate) {
+    document.getElementById('flashLoanSuccessCount').textContent = successCount;
+    document.getElementById('flashLoanTotalProfit').textContent = '$' + totalProfit.toFixed(2);
+    document.getElementById('flashLoanSuccessRate').textContent = successRate.toFixed(1) + '%';
+}
+
+// تحديث حالة الفلاش لون
+function updateFlashLoanStatus(message, type = 'info') {
+    const statusElement = document.getElementById('flashLoanStatus');
+    
+    const colors = {
+        'info': 'rgba(33, 150, 243, 0.3)',
+        'success': 'rgba(76, 175, 80, 0.3)', 
+        'warning': 'rgba(255, 152, 0, 0.3)',
+        'error': 'rgba(244, 67, 54, 0.3)',
+        'hunting': 'rgba(156, 39, 176, 0.3)'
+    };
+    
+    statusElement.innerHTML = message;
+    statusElement.style.background = colors[type] || colors['info'];
+}
+</script>
                     <!-- Quick Stats -->
                     <div class="col-12 col-lg-4">
                         <div class="stats-grid">
